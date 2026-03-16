@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Gewinnhai",
+    "slug": "gewinnhai-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gewinnhai.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.gewinnhai.mobile"
+    },
+    "extra": {
+      "apiBaseUrl": "https://www.gewinnhai.de/api",
+      "apiTimeoutMs": 10000
+    }
+  }
+}
