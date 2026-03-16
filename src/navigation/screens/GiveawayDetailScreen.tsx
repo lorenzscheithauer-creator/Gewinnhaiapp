@@ -1,4 +1,4 @@
-import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { EmptyState } from '../../components/EmptyState';
@@ -7,6 +7,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useGiveawayDetail } from '../../hooks/useGiveawayDetail';
 import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
+import { openExternalUrl } from '../../utils/links';
 import { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GiveawayDetail'>;
@@ -24,13 +25,10 @@ export function GiveawayDetailScreen({ route }: Props) {
   const offline = isOfflineError(detailQuery.error);
 
   const openSource = async (url: string) => {
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      Alert.alert('Link nicht verfügbar', 'Der Link zum Gewinnspiel kann auf diesem Gerät nicht geöffnet werden.');
-      return;
+    const result = await openExternalUrl(url);
+    if (!result.ok) {
+      Alert.alert('Link nicht verfügbar', result.reason ?? 'Der Link zum Gewinnspiel kann auf diesem Gerät nicht geöffnet werden.');
     }
-
-    await Linking.openURL(url);
   };
 
   if (detailQuery.isPending && !detailQuery.data) {

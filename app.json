@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Gewinnhai",
+    "name": "Gewinnhai App",
     "slug": "gewinnhai-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -25,12 +25,18 @@
       "policy": "appVersion"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.gewinnhai.mobile",
       "buildNumber": "1.0.0",
       "requireFullScreen": true,
       "infoPlist": {
-        "CFBundleDisplayName": "Gewinnhai"
+        "CFBundleDisplayName": "Gewinnhai",
+        "LSApplicationQueriesSchemes": [
+          "http",
+          "https",
+          "mailto",
+          "tel"
+        ]
       },
       "associatedDomains": [
         "applinks:gewinnhai.de",
@@ -68,7 +74,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "extra": {
       "apiBaseUrl": "https://www.gewinnhai.de",
@@ -90,7 +97,8 @@
           "/api/top10",
           "/wp-json/wp/v2/posts"
         ]
-      }
+      },
+      "appEnv": "production"
     },
     "androidStatusBar": {
       "backgroundColor": "#ffffff",

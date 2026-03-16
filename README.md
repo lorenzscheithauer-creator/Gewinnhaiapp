@@ -202,3 +202,12 @@ Sobald die echten Website-Dateien/API-Spezifikation vorliegen:
 - Echte Testläufe auf physischen Android-/iOS-Geräten (inkl. langsamer Netze/offline/restore).
 - Finales QA der Top10-Datenquelle auf Backend-Seite (Tag/Endpoint-Strategie je nach CMS-Datenstand).
 - Store-relevante Metadaten finalisieren (Datenschutz-URL, Impressum, finale Assets/Listing-Texte, Signing-Setup).
+
+
+## 9) Delta für erste testbare Release-Version
+
+- API-Schicht wurde gegen unerwartete HTML-Antworten, Timeout- und Offline-Szenarien weiter gehärtet.
+- Live-Mapping für Home/Kategorien/Top10/Detail wurde robuster gegenüber Feldabweichungen zwischen Legacy- und WordPress-Antworten.
+- Externe Gewinnspiel-Links werden normalisiert und mit robustem Fehlerhandling geöffnet.
+- App-Reopen triggert jetzt Refetch für aktive Queries inklusive Detailseite.
+- Build-Konfiguration wurde für interne Android-/iOS-Testbuilds weiter bereinigt (`app.json`, `eas.json`).

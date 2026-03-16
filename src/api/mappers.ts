@@ -58,27 +58,30 @@ function normalizeText(value: unknown): string | undefined {
   return sanitized || undefined;
 }
 
-function normalizeUrl(value: string | undefined): string | undefined {
+export function normalizeUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
 
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+  const withoutQuotes = trimmed.replace(/^['"]|['"]$/g, '');
+  if (!withoutQuotes) return undefined;
+
+  if (withoutQuotes.startsWith('mailto:') || withoutQuotes.startsWith('tel:')) {
+    return withoutQuotes;
   }
 
-  if (trimmed.startsWith('www.')) {
-    return `https://${trimmed}`;
+  if (withoutQuotes.startsWith('//')) return `https:${withoutQuotes}`;
+  if (withoutQuotes.startsWith('/')) return `https://www.gewinnhai.de${withoutQuotes}`;
+
+  if (/^https?:\/\//i.test(withoutQuotes)) {
+    return withoutQuotes;
   }
 
-  if (trimmed.startsWith('mailto:') || trimmed.startsWith('tel:')) {
-    return trimmed;
+  if (/^www\./i.test(withoutQuotes)) {
+    return `https://${withoutQuotes}`;
   }
 
-  if (trimmed.startsWith('//')) return `https:${trimmed}`;
-  if (trimmed.startsWith('/')) return `https://www.gewinnhai.de${trimmed}`;
-
-  return `https://${trimmed}`;
+  return `https://${withoutQuotes}`;
 }
 
 function normalizeDate(value: unknown): string | undefined {
@@ -174,6 +177,22 @@ function fallbackId(item: Record<string, unknown>, title: string | undefined): s
   return toSlug(title);
 }
 
+function fallbackTitle(item: Record<string, unknown>, id: string): string {
+  const category = normalizeText(firstString(item.category_name, asRecord(item.acf).category_name));
+  if (category) return `Gewinnspiel (${category})`;
+
+  const inferred = id.split('/').pop()?.replace(/[-_]/g, ' ');
+  if (inferred && inferred.length > 2) {
+    return inferred.charAt(0).toUpperCase() + inferred.slice(1);
+  }
+
+  return 'Gewinnspiel';
+}
+
+function normalizeDescription(value: unknown): string | undefined {
+  return stripHtml(normalizeText(value));
+}
+
 export function mapGiveaway(raw: unknown): Giveaway {
   const item = asRecord(raw);
   const wpTitle = stripHtml(extractWpField(item.title));
@@ -191,12 +210,17 @@ export function mapGiveaway(raw: unknown): Giveaway {
     fallbackId(item, normalizedTitle);
   const slug = firstString(item.slug, item.seo_slug, seoLinkSlug, item.id, item.giveaway_id, toSlug(normalizedTitle)) ?? id ?? 'unknown';
 
+  const finalizedId = id ?? 'unknown';
+  const finalizedTitle = normalizedTitle || fallbackTitle(item, finalizedId);
+
   return {
-    id: id ?? 'unknown',
+    id: finalizedId,
     slug,
-    title: normalizedTitle,
-    teaser: normalizedTeaser ?? '',
-    description: normalizeText(firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description'))),
+    title: finalizedTitle,
+    teaser: normalizedTeaser ?? 'Mehr Details in der Gewinnspielansicht.',
+    description: normalizeDescription(
+      firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description'))
+    ),
     imageUrl: normalizeUrl(
       firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractAfcValue(item, 'image'), extractWordpressImage(item))
     ),
@@ -220,7 +244,7 @@ export function mapCategory(raw: unknown): Category {
   return {
     id: firstString(item.id, item.category_id, item.slug, title) ?? 'unknown',
     slug: firstString(item.slug, item.seo_slug, item.id, toSlug(title)) ?? (toSlug(title) || 'unknown'),
-    title,
+    title: title || 'Kategorie',
     iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail, asRecord(item.acf).icon))
   };
 }
@@ -241,7 +265,7 @@ export function mapTopItem(raw: unknown, index: number): TopItem {
     item.id
   );
 
-  const title = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? '';
+  const title = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? `Top ${index + 1}`;
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
     rank: asNumber(item.rank ?? item.position ?? item.place ?? asRecord(item.acf).rank) ?? index + 1,

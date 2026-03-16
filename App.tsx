@@ -85,7 +85,6 @@ export default function App() {
 
       if (isActive) {
         queryClient.invalidateQueries({
-          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] !== 'giveaway-detail',
           refetchType: 'active'
         });
       }

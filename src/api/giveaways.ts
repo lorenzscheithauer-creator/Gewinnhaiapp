@@ -228,6 +228,15 @@ function toDetailCandidates(idOrSlug: string): string[] {
   return Array.from(new Set(candidates));
 }
 
+
+function extractSlugFromUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+
+  const sanitized = url.split('?')[0].replace(/\/+$/, '');
+  const slug = sanitized.split('/').pop();
+  return slug?.trim() || undefined;
+}
+
 function fallbackTop10FromGiveaways(giveaways: Giveaway[]): TopItem[] {
   return giveaways.slice(0, 10).map((item, index) => ({
     id: `fallback-${item.id}`,
@@ -235,7 +244,7 @@ function fallbackTop10FromGiveaways(giveaways: Giveaway[]): TopItem[] {
     title: item.title,
     teaser: item.teaser,
     giveawayId: item.id,
-    giveawaySlug: item.slug,
+    giveawaySlug: item.slug || extractSlugFromUrl(item.sourceUrl),
     sourceUrl: item.sourceUrl
   }));
 }
@@ -354,7 +363,16 @@ export async function fetchTop10(): Promise<TopItem[]> {
           }
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
-      const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
+      const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => {
+        const parsed = mapTopItem(item, index);
+        const inferredSlug = extractSlugFromUrl(parsed.sourceUrl);
+
+        return {
+          ...parsed,
+          giveawaySlug: parsed.giveawaySlug ?? inferredSlug,
+          giveawayId: parsed.giveawayId ?? inferredSlug
+        };
+      });
       const sanitized = sanitizeTop10(mapped);
 
       if (!sanitized.length && mapped.length) {
