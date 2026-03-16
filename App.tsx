@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
@@ -23,13 +23,36 @@ const queryClient = new QueryClient({
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
       refetchOnReconnect: true,
-      refetchOnWindowFocus: true
+      refetchOnWindowFocus: true,
+      networkMode: 'offlineFirst'
     }
   }
 });
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
+
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['gewinnhai://', 'https://gewinnhai.de', 'https://www.gewinnhai.de'],
+  config: {
+    screens: {
+      MainTabs: {
+        screens: {
+          Home: 'home',
+          Categories: 'categories',
+          Top10: 'top10'
+        }
+      },
+      GiveawayDetail: {
+        path: 'gewinnspiel/:idOrSlug',
+        parse: {
+          idOrSlug: (value: string) => decodeURIComponent(value).trim()
+        }
+      }
+    }
+  },
+};
 
 const navTheme = {
   ...DefaultTheme,
@@ -62,7 +85,8 @@ export default function App() {
 
       if (isActive) {
         queryClient.invalidateQueries({
-          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] !== 'giveaway-detail'
+          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] !== 'giveaway-detail',
+          refetchType: 'active'
         });
       }
     });
@@ -75,7 +99,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} linking={linking}>
           <StatusBar style="dark" />
           <Stack.Navigator>
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />

@@ -18,7 +18,8 @@ function formatExpiresAt(value: string): string {
 }
 
 export function GiveawayDetailScreen({ route }: Props) {
-  const detailQuery = useGiveawayDetail(route.params.idOrSlug);
+  const normalizedIdOrSlug = decodeURIComponent(route.params.idOrSlug).trim();
+  const detailQuery = useGiveawayDetail(normalizedIdOrSlug);
   useRefetchOnFocus(detailQuery.refetch, { minIntervalMs: 15_000 });
   const offline = isOfflineError(detailQuery.error);
 
@@ -61,10 +62,22 @@ export function GiveawayDetailScreen({ route }: Props) {
           <Text style={styles.metaText}>Läuft bis: {formatExpiresAt(item.expiresAt)}</Text>
         </View>
       ) : null}
-      {item.description ? <Text style={styles.body}>{item.description}</Text> : <EmptyState title="Keine Beschreibung" message="Für dieses Gewinnspiel wurde keine Detailbeschreibung geliefert." />}
-      <Pressable style={styles.button} onPress={() => openSource(item.sourceUrl)}>
-        <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
-      </Pressable>
+      {item.description ? (
+        <Text style={styles.body}>{item.description}</Text>
+      ) : (
+        <EmptyState
+          title="Keine Beschreibung"
+          message="Für dieses Gewinnspiel wurde keine Detailbeschreibung geliefert."
+          onRetry={() => detailQuery.refetch()}
+        />
+      )}
+      {item.sourceUrl ? (
+        <Pressable style={styles.button} onPress={() => openSource(item.sourceUrl)}>
+          <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
+        </Pressable>
+      ) : (
+        <EmptyState title="Kein Link verfügbar" message="Der externe Link wurde von der Live-API nicht geliefert." onRetry={() => detailQuery.refetch()} />
+      )}
     </ScrollView>
   );
 }

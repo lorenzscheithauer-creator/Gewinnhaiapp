@@ -36,14 +36,14 @@ export function CategoriesScreen() {
       ) : null}
       <FlatList
         data={categoriesQuery.data ?? []}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `${item.id}:${item.slug}:${index}`}
         refreshControl={
           <RefreshControl
             refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending}
             onRefresh={() => categoriesQuery.refetch()}
           />
         }
-        ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." />}
+        ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." onRetry={() => categoriesQuery.refetch()} />}
         renderItem={({ item }: { item: Category }) => (
           <Pressable onPress={() => navigation.navigate('Home', { categoryId: item.id, categoryTitle: item.title })} style={styles.item}>
             <Text style={styles.title}>{item.title}</Text>

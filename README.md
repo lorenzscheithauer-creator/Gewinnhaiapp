@@ -185,11 +185,12 @@ Sobald die echten Website-Dateien/API-Spezifikation vorliegen:
 ## 8) Status nach Härtung für erste echte Testversion
 
 ### Was jetzt funktioniert
-- Live-Datenanbindung wurde auf robuste Mehrfach-Endpunkte gehärtet (inkl. Retry/Timeout und strikteres Mapping gegen invalide Antworten).
-- Home, Kategorien, Top10 und Detail arbeiten mit echten API-/WordPress-Live-Daten und nutzen nur noch Cache als Offline-Sicherheitsnetz.
-- Wichtige Screens haben konsistente Loading-, Error-, Empty- und Offline-States inkl. Pull-to-refresh und Fokus-Refetch.
-- React-Query- und API-Cache-Verhalten wurde stabilisiert, damit kurze Netzabbrüche besser abgefangen werden.
-- Android/iOS-Build-Konfiguration wurde für erste interne Testbuilds konkretisiert (VersionCode/BuildNumber, EAS-Profile, ENV-Variablen).
+- Live-Datenanbindung wurde auf robuste Mehrfach-Endpunkte gehärtet (inkl. Retry/Timeout und robusteres Mapping bei Feldabweichungen und HTML-Responses).
+- Home, Kategorien, Top10 und Detail arbeiten mit echten API-/WordPress-Live-Daten inklusive robusterer Detailauflösung für Slug/ID-Varianten.
+- Loading-, Error-, Empty- und Offline-States sind auf allen Kernscreens konsistent und enthalten jetzt zusätzliche Retry-Möglichkeiten.
+- Pull-to-refresh und Fokus-Refetch sind stabilisiert und auf App-Reopen aktiv, inklusive React-Query-OfflineFirst-Verhalten.
+- Deep-Link-Pfade für Gewinnspiel-Details sind im Navigation- und Plattform-Setup vorbereitet.
+- Android/iOS-Build-Konfiguration ist für interne Testbuilds konkretisiert (VersionCode/BuildNumber, EAS-Profile, ENV-Variablen, Intent-Filter/Associated Domains).
 
 ### Geänderte Kernbereiche
 - API-Client und Daten-Mapping (`src/api/client.ts`, `src/api/giveaways.ts`, `src/api/mappers.ts`)
