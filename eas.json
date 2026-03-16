@@ -6,7 +6,22 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "10000",
+        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAYS": "/api/giveaways,/wp-json/wp/v2/posts",
+        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAY_DETAIL": "/api/giveaways/{idOrSlug},/wp-json/wp/v2/posts/{idOrSlug}",
+        "EXPO_PUBLIC_ENDPOINTS_CATEGORIES": "/api/categories,/wp-json/wp/v2/categories",
+        "EXPO_PUBLIC_ENDPOINTS_TOP10": "/api/top10,/wp-json/wp/v2/posts",
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
     },
     "preview": {
       "distribution": "internal",
