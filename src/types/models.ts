@@ -24,6 +24,8 @@ export interface TopItem {
   title: string;
   teaser?: string;
   giveawayId?: string;
+  giveawaySlug?: string;
+  sourceUrl?: string;
 }
 
 export interface SearchParams {

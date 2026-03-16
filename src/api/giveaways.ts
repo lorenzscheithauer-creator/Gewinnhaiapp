@@ -144,7 +144,6 @@ function uniqueById<T extends { id: string }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
-
 function hasMeaningfulText(value: string | undefined): boolean {
   return Boolean(value && value.trim().length >= 3);
 }
@@ -209,6 +208,18 @@ async function resolveWpTagIdBySlug(slug: string): Promise<number | undefined> {
   }
 
   return undefined;
+}
+
+function fallbackTop10FromGiveaways(giveaways: Giveaway[]): TopItem[] {
+  return giveaways.slice(0, 10).map((item, index) => ({
+    id: `fallback-${item.id}`,
+    rank: index + 1,
+    title: item.title,
+    teaser: item.teaser,
+    giveawayId: item.id,
+    giveawaySlug: item.slug,
+    sourceUrl: item.sourceUrl
+  }));
 }
 
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
@@ -317,6 +328,20 @@ export async function fetchTop10(): Promise<TopItem[]> {
     await setCache(CACHE_KEYS.top10, list, { ttlMs: CACHE_TTL.top10 });
     return list;
   } catch (err) {
+    const fallbackFromCache = await getCache<TopItem[]>(CACHE_KEYS.top10, { allowExpired: true });
+    if (fallbackFromCache?.length) return fallbackFromCache;
+
+    try {
+      const giveaways = await fetchGiveaways();
+      const fallback = fallbackTop10FromGiveaways(giveaways);
+      if (fallback.length) {
+        await setCache(CACHE_KEYS.top10, fallback, { ttlMs: CACHE_TTL.top10 });
+        return fallback;
+      }
+    } catch {
+      // ignore and use the canonical fallback below
+    }
+
     return fallbackCache<TopItem[]>(CACHE_KEYS.top10, err);
   }
 }

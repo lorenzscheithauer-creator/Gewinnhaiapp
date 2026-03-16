@@ -1,4 +1,4 @@
-import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { EmptyState } from '../../components/EmptyState';
@@ -24,9 +24,12 @@ export function GiveawayDetailScreen({ route }: Props) {
 
   const openSource = async (url: string) => {
     const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      await Linking.openURL(url);
+    if (!canOpen) {
+      Alert.alert('Link nicht verfügbar', 'Der Link zum Gewinnspiel kann auf diesem Gerät nicht geöffnet werden.');
+      return;
     }
+
+    await Linking.openURL(url);
   };
 
   if (detailQuery.isPending && !detailQuery.data) {
