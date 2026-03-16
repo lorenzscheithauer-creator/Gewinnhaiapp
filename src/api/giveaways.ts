@@ -6,6 +6,7 @@ import { Category, Giveaway, SearchParams, TopItem } from '../types/models';
 import { getCache, setCache } from '../utils/cache';
 import { extractDetail, extractList, mapCategory, mapGiveaway, mapTopItem } from './mappers';
 import { ENV } from '../config/env';
+import { hasActiveSearchParams, normalizeSearchParams } from '../utils/searchParams';
 import { log } from '../utils/logger';
 
 const CACHE_TTL = {
@@ -45,22 +46,6 @@ function stableSerialize(value: unknown): string {
 function createCacheKey(base: string, params?: SearchParams): string {
   if (!params) return base;
   return `${base}:${stableSerialize(params)}`;
-}
-
-function normalizeSearchParams(params?: SearchParams): SearchParams | undefined {
-  if (!params) return undefined;
-
-  const query = params.query?.trim();
-  const categoryId = params.categoryId?.trim();
-  const categorySlug = params.categorySlug?.trim().toLowerCase();
-
-  const normalized: SearchParams = {
-    query: query && query.length >= 2 ? query : undefined,
-    categoryId: categoryId || undefined,
-    categorySlug: categorySlug || undefined
-  };
-
-  return normalized.query || normalized.categoryId || normalized.categorySlug ? normalized : undefined;
 }
 
 function getErrorMessage(err: unknown): string {
@@ -489,7 +474,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 
     await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
     log('info', 'Giveaways synced from API.', { count: list.length, cacheKey });
-    if (!normalizedParams?.query && !normalizedParams?.categoryId && !normalizedParams?.categorySlug) {
+    if (!hasActiveSearchParams(normalizedParams)) {
       await persistFeedSnapshot(list);
     }
 

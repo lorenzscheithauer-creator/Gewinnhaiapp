@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,8 +14,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
 import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
-import { openExternalUrl } from '../../utils/links';
-import { resolveGiveawayNavigationId } from '../../utils/giveaway';
+import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { MainTabParamList, RootStackParamList } from '../types';
 
 type HomeRouteProp = RouteProp<MainTabParamList, 'Home'>;
@@ -83,24 +82,9 @@ export function HomeScreen() {
         renderItem={({ item }: { item: Giveaway }) => (
           <GiveawayCard
             item={item}
-            onPress={async (selected) => {
-              const idOrSlug = resolveGiveawayNavigationId(selected);
-
-              if (idOrSlug) {
-                navigation.navigate('GiveawayDetail', { idOrSlug });
-                return;
-              }
-
-              if (selected.sourceUrl) {
-                const result = await openExternalUrl(selected.sourceUrl);
-                if (!result.ok) {
-                  Alert.alert('Link nicht verfügbar', result.reason ?? 'Der Gewinnspiel-Link kann nicht geöffnet werden.');
-                }
-                return;
-              }
-
-              Alert.alert('Keine Details verfügbar', 'Für dieses Gewinnspiel fehlen aktuell nutzbare Detaildaten.');
-            }}
+            onPress={(selected) =>
+              openGiveawaySelection(selected, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }))
+            }
           />
         )}
       />

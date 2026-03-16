@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -12,8 +12,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
 import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
-import { openExternalUrl } from '../../utils/links';
-import { resolveGiveawayNavigationId } from '../../utils/giveaway';
+import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { RootStackParamList } from '../types';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -24,7 +23,7 @@ export function SearchScreen() {
   const debouncedQuery = useDebouncedValue(query, 350);
   const shouldSearch = debouncedQuery.trim().length >= 2;
   const giveawaysQuery = useGiveaways({ query: debouncedQuery }, { enabled: shouldSearch });
-  useRefetchOnFocus(giveawaysQuery.refetch, { minIntervalMs: 10_000 });
+  useRefetchOnFocus(giveawaysQuery.refetch, { enabled: shouldSearch, minIntervalMs: 10_000 });
   const offline = isOfflineError(giveawaysQuery.error);
 
   const data = useMemo(() => {
@@ -69,7 +68,7 @@ export function SearchScreen() {
         data={data}
         keyExtractor={(item) => `${item.id}:${item.slug}`}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />}
+        refreshControl={<RefreshControl enabled={shouldSearch} refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />}
         ListEmptyComponent={
           query.trim().length < 2 ? (
             <EmptyState title="Suche starten" message="Gib mindestens 2 Zeichen ein, um Live-Gewinnspiele zu suchen." />
@@ -81,24 +80,9 @@ export function SearchScreen() {
         renderItem={({ item }: { item: Giveaway }) => (
           <GiveawayCard
             item={item}
-            onPress={async (selected) => {
-              const idOrSlug = resolveGiveawayNavigationId(selected);
-
-              if (idOrSlug) {
-                navigation.navigate('GiveawayDetail', { idOrSlug });
-                return;
-              }
-
-              if (selected.sourceUrl) {
-                const result = await openExternalUrl(selected.sourceUrl);
-                if (!result.ok) {
-                  Alert.alert('Link nicht verfügbar', result.reason ?? 'Der Gewinnspiel-Link kann nicht geöffnet werden.');
-                }
-                return;
-              }
-
-              Alert.alert('Keine Details verfügbar', 'Für dieses Gewinnspiel fehlen aktuell nutzbare Detaildaten.');
-            }}
+            onPress={(selected) =>
+              openGiveawaySelection(selected, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }))
+            }
           />
         )}
       />
