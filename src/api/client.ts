@@ -29,7 +29,9 @@ export const apiClient = axios.create({
   timeout: ENV.apiTimeoutMs,
   headers: {
     Accept: 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+    'X-Requested-With': 'XMLHttpRequest'
   },
   transformResponse: [...transformResponse, (data) => tryParseJsonPayload(data)]
 });

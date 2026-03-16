@@ -11,8 +11,9 @@ export function useGiveaways(params?: SearchParams) {
     queryFn: () => fetchGiveaways(params),
     staleTime: 60_000,
     gcTime: 30 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     refetchInterval: params?.query ? false : BACKGROUND_REFRESH_MS,
     placeholderData: (previousData) => previousData
   });
@@ -24,8 +25,9 @@ export function useCategories() {
     queryFn: fetchCategories,
     staleTime: 10 * 60_000,
     gcTime: 60 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     refetchInterval: 30 * 60_000,
     placeholderData: (previousData) => previousData
   });
@@ -37,8 +39,9 @@ export function useTop10() {
     queryFn: fetchTop10,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     refetchInterval: BACKGROUND_REFRESH_MS,
     placeholderData: (previousData) => previousData
   });
