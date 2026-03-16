@@ -20,14 +20,15 @@ export function SearchScreen() {
   const navigation = useNavigation<Navigation>();
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query, 350);
-  const giveawaysQuery = useGiveaways({ query: debouncedQuery });
+  const shouldSearch = debouncedQuery.trim().length >= 2;
+  const giveawaysQuery = useGiveaways({ query: debouncedQuery }, { enabled: shouldSearch });
   useRefetchOnFocus(giveawaysQuery.refetch, { minIntervalMs: 10_000 });
   const offline = isOfflineError(giveawaysQuery.error);
 
   const data = useMemo(() => {
-    if ((debouncedQuery || '').trim().length < 2) return [];
+    if (!shouldSearch) return [];
     return giveawaysQuery.data ?? [];
-  }, [debouncedQuery, giveawaysQuery.data]);
+  }, [giveawaysQuery.data, shouldSearch]);
 
   if (giveawaysQuery.isPending && !Array.isArray(giveawaysQuery.data) && query.trim().length >= 2) {
     return <LoadingState label="Suche wird geladen…" />;

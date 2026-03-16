@@ -21,12 +21,17 @@ function normalizeSearchParams(params?: SearchParams): SearchParams | undefined 
   };
 }
 
-export function useGiveaways(params?: SearchParams) {
+interface UseGiveawaysOptions {
+  enabled?: boolean;
+}
+
+export function useGiveaways(params?: SearchParams, options?: UseGiveawaysOptions) {
   const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
 
   return useQuery({
     queryKey: ['giveaways', normalizedParams],
     queryFn: () => giveawaysRepository.list(normalizedParams),
+    enabled: options?.enabled ?? true,
     staleTime: ENV.query.listStaleMs,
     gcTime: ENV.query.listGcMs,
     refetchOnMount: 'always',
