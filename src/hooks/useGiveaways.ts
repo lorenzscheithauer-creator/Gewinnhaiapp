@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
 import { giveawaysRepository } from '../data/giveawaysRepository';
 import { ENV } from '../config/env';
 import { SearchParams } from '../types/models';
 import { normalizeSearchParams } from '../utils/searchParams';
+import { useDataQuery } from './useDataQuery';
 
 const BACKGROUND_REFRESH_MS = 5 * 60_000;
 
@@ -15,50 +15,32 @@ interface UseGiveawaysOptions {
 export function useGiveaways(params?: SearchParams, options?: UseGiveawaysOptions) {
   const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
 
-  return useQuery({
+  return useDataQuery({
     queryKey: ['giveaways', normalizedParams],
     queryFn: () => giveawaysRepository.list(normalizedParams),
     enabled: options?.enabled ?? true,
     staleTime: ENV.query.listStaleMs,
     gcTime: ENV.query.listGcMs,
-    refetchOnMount: 'always',
-    refetchOnReconnect: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: normalizedParams?.query ? false : BACKGROUND_REFRESH_MS,
-    refetchIntervalInBackground: false,
-    placeholderData: (previousData) => previousData,
-    networkMode: 'offlineFirst'
+    refetchInterval: normalizedParams?.query ? false : BACKGROUND_REFRESH_MS
   });
 }
 
 export function useCategories() {
-  return useQuery({
+  return useDataQuery({
     queryKey: ['categories'],
     queryFn: giveawaysRepository.categories,
     staleTime: 20 * 60_000,
     gcTime: 2 * 60 * 60_000,
-    refetchOnMount: 'always',
-    refetchOnReconnect: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 60_000,
-    refetchIntervalInBackground: false,
-    placeholderData: (previousData) => previousData,
-    networkMode: 'offlineFirst'
+    refetchInterval: 60 * 60_000
   });
 }
 
 export function useTop10() {
-  return useQuery({
+  return useDataQuery({
     queryKey: ['top10'],
     queryFn: giveawaysRepository.top10,
     staleTime: 10 * 60_000,
     gcTime: ENV.query.listGcMs,
-    refetchOnMount: 'always',
-    refetchOnReconnect: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: BACKGROUND_REFRESH_MS,
-    refetchIntervalInBackground: false,
-    placeholderData: (previousData) => previousData,
-    networkMode: 'offlineFirst'
+    refetchInterval: BACKGROUND_REFRESH_MS
   });
 }

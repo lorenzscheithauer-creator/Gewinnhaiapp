@@ -458,7 +458,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(normalizedParams) : buildLegacyGiveawayParams(normalizedParams);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
-      const sanitized = sanitizeGiveawayList(uniqueById(mapped));
+      const sanitized = sanitizeGiveawayList(mapped);
       const filtered = applyLocalFilters(sanitized, normalizedParams);
 
       if (!filtered.length) {
