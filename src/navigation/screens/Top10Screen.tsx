@@ -5,21 +5,29 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
+import { OfflineState } from '../../components/OfflineState';
 import { useTop10 } from '../../hooks/useGiveaways';
 import { TopItem } from '../../types/models';
 import { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+
+function isOfflineError(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
+}
 export function Top10Screen() {
   const top10Query = useTop10();
   const navigation = useNavigation<NavigationProp>();
+
+  const offline = isOfflineError(top10Query.error);
 
   if (top10Query.isLoading && !Array.isArray(top10Query.data)) {
     return <LoadingState label="Top10 wird geladen…" />;
   }
 
   if (top10Query.isError && !Array.isArray(top10Query.data)) {
+    if (offline) return <OfflineState message={(top10Query.error as Error).message} onRetry={() => top10Query.refetch()} />;
     return <ErrorState message={(top10Query.error as Error).message} onRetry={() => top10Query.refetch()} />;
   }
 

@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
+import { OfflineState } from '../../components/OfflineState';
 import { useGiveawayDetail } from '../../hooks/useGiveawayDetail';
 import { RootStackParamList } from '../types';
 
@@ -14,8 +15,13 @@ function formatExpiresAt(value: string): string {
   return date.toLocaleDateString('de-DE');
 }
 
+function isOfflineError(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
+}
+
 export function GiveawayDetailScreen({ route }: Props) {
   const detailQuery = useGiveawayDetail(route.params.idOrSlug);
+  const offline = isOfflineError(detailQuery.error);
 
   const openSource = async (url: string) => {
     const canOpen = await Linking.canOpenURL(url);
@@ -29,6 +35,7 @@ export function GiveawayDetailScreen({ route }: Props) {
   }
 
   if (detailQuery.isError && !detailQuery.data) {
+    if (offline) return <OfflineState message={(detailQuery.error as Error)?.message} onRetry={() => detailQuery.refetch()} />;
     return <ErrorState message={(detailQuery.error as Error)?.message} onRetry={() => detailQuery.refetch()} />;
   }
 

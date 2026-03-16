@@ -7,10 +7,19 @@ import { getCache, setCache } from '../utils/cache';
 import { extractDetail, extractList, mapCategory, mapGiveaway, mapTopItem } from './mappers';
 import { ENV } from '../config/env';
 
+const CACHE_TTL = {
+  giveaways: 10 * 60_000,
+  categories: 24 * 60 * 60_000,
+  top10: 15 * 60_000,
+  giveawayDetail: 30 * 60_000,
+  feedSnapshot: 12 * 60 * 60_000
+};
+
 const CACHE_KEYS = {
   giveaways: 'cache:giveaways',
   categories: 'cache:categories',
   top10: 'cache:top10',
+  feedSnapshot: 'cache:feed-snapshot',
   giveawayDetail: (idOrSlug: string) => `cache:giveaway-detail:${idOrSlug}`
 };
 
@@ -65,8 +74,12 @@ function getErrorMessage(err: unknown): string {
 }
 
 async function fallbackCache<T>(cacheKey: string, err: unknown): Promise<T> {
-  const cached = await getCache<T>(cacheKey);
-  if (cached) return cached;
+  const freshCached = await getCache<T>(cacheKey);
+  if (freshCached) return freshCached;
+
+  const expiredCached = await getCache<T>(cacheKey, { allowExpired: true });
+  if (expiredCached) return expiredCached;
+
   throw new Error(getErrorMessage(err));
 }
 
@@ -123,6 +136,27 @@ function parseWpDetailId(idOrSlug: string): string {
   return `?slug=${encodeURIComponent(normalized)}&_embed=1`;
 }
 
+function uniqueById<T extends { id: string }>(items: T[]): T[] {
+  const map = new Map<string, T>();
+
+  items.forEach((item) => {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+async function persistFeedSnapshot(giveaways: Giveaway[]): Promise<void> {
+  const snapshot = {
+    ids: giveaways.slice(0, 100).map((item) => item.id),
+    updatedAt: new Date().toISOString()
+  };
+
+  await setCache(CACHE_KEYS.feedSnapshot, snapshot, { ttlMs: CACHE_TTL.feedSnapshot });
+}
+
 async function tryEndpoints<T>(
   endpoints: string[],
   runner: (endpoint: string, index: number) => Promise<T>
@@ -149,10 +183,15 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
     const list = await tryEndpoints(ENV.endpoints.giveaways, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(params) : buildLegacyGiveawayParams(params);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
-      return extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
+      const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
+      return uniqueById(mapped);
     });
 
-    await setCache(cacheKey, list);
+    await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
+    if (!params?.query && !params?.categoryId) {
+      await persistFeedSnapshot(list);
+    }
+
     return list;
   } catch (err) {
     return fallbackCache<Giveaway[]>(cacheKey, err);
@@ -173,7 +212,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
       return mapGiveaway(wpSlugResult);
     });
 
-    await setCache(cacheKey, detail);
+    await setCache(cacheKey, detail, { ttlMs: CACHE_TTL.giveawayDetail });
     return detail;
   } catch (err) {
     return fallbackCache<Giveaway>(cacheKey, err);
@@ -185,10 +224,10 @@ export async function fetchCategories(): Promise<Category[]> {
     const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100 } : undefined;
       const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
-      return extractList(data, ['categories', 'items', 'data']).map(mapCategory);
+      return uniqueById(extractList(data, ['categories', 'items', 'data']).map(mapCategory));
     });
 
-    await setCache(CACHE_KEYS.categories, list);
+    await setCache(CACHE_KEYS.categories, list, { ttlMs: CACHE_TTL.categories });
     return list;
   } catch (err) {
     return fallbackCache<Category[]>(CACHE_KEYS.categories, err);
@@ -200,10 +239,11 @@ export async function fetchTop10(): Promise<TopItem[]> {
     const list = await tryEndpoints(ENV.endpoints.top10, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? buildWpTop10Params() : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
-      return extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
+      const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
+      return mapped.sort((left, right) => left.rank - right.rank);
     });
 
-    await setCache(CACHE_KEYS.top10, list);
+    await setCache(CACHE_KEYS.top10, list, { ttlMs: CACHE_TTL.top10 });
     return list;
   } catch (err) {
     return fallbackCache<TopItem[]>(CACHE_KEYS.top10, err);

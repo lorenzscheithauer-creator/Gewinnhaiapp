@@ -42,6 +42,7 @@ function firstString(...values: unknown[]): string | undefined {
 function normalizeUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   if (value.startsWith('//')) return `https:${value}`;
+  if (value.startsWith('/')) return `https://www.gewinnhai.de${value}`;
   return value;
 }
 
@@ -66,6 +67,23 @@ function extractWpField(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   const record = asRecord(value);
   return asString(record.rendered);
+}
+
+
+function extractWpCategoryId(item: Record<string, unknown>): string | undefined {
+  if (Array.isArray(item.categories) && item.categories.length > 0) {
+    return asString(item.categories[0]);
+  }
+
+  const embedded = asRecord(item._embedded);
+  const terms = embedded['wp:term'];
+  if (!Array.isArray(terms)) return undefined;
+
+  const firstTermGroup = terms.find((group) => Array.isArray(group));
+  if (!Array.isArray(firstTermGroup) || firstTermGroup.length === 0) return undefined;
+
+  const firstCategory = asRecord(firstTermGroup[0]);
+  return firstString(firstCategory.id, firstCategory.slug, firstCategory.term_id);
 }
 
 function extractWordpressImage(item: Record<string, unknown>): string | undefined {
@@ -113,7 +131,7 @@ export function mapGiveaway(raw: unknown): Giveaway {
         extractWordpressImage(item)
       )
     ),
-    categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category),
+    categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item)),
     expiresAt: normalizeDate(firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt)),
     sourceUrl:
       normalizeUrl(
@@ -145,7 +163,7 @@ export function mapTopItem(raw: unknown, index: number): TopItem {
     rank: asNumber(item.rank ?? item.position ?? item.place) ?? index + 1,
     title: firstString(wpTitle, item.title, item.name, item.headline) ?? `Top-Eintrag ${index + 1}`,
     teaser: firstString(wpTeaser, item.teaser, item.summary, item.description),
-    giveawayId: firstString(item.giveawayId, item.giveaway_id, item.slug, item.id)
+    giveawayId: firstString(item.giveawayId, item.giveaway_id, item.slug, item.id, asRecord(item.acf).giveaway_id)
   };
 }
 

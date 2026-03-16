@@ -5,21 +5,29 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
+import { OfflineState } from '../../components/OfflineState';
 import { useCategories } from '../../hooks/useGiveaways';
 import { Category } from '../../types/models';
 import { MainTabParamList } from '../types';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Categories'>;
 
+
+function isOfflineError(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
+}
 export function CategoriesScreen() {
   const categoriesQuery = useCategories();
   const navigation = useNavigation<NavigationProp>();
+
+  const offline = isOfflineError(categoriesQuery.error);
 
   if (categoriesQuery.isLoading && !Array.isArray(categoriesQuery.data)) {
     return <LoadingState label="Kategorien werden geladen…" />;
   }
 
   if (categoriesQuery.isError && !Array.isArray(categoriesQuery.data)) {
+    if (offline) return <OfflineState message={(categoriesQuery.error as Error).message} onRetry={() => categoriesQuery.refetch()} />;
     return <ErrorState message={(categoriesQuery.error as Error).message} onRetry={() => categoriesQuery.refetch()} />;
   }
 

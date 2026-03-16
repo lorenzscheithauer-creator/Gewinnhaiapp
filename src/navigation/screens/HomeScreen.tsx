@@ -9,6 +9,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { GiveawayCard } from '../../components/GiveawayCard';
 import { LoadingState } from '../../components/LoadingState';
+import { OfflineState } from '../../components/OfflineState';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
 import { MainTabParamList, RootStackParamList } from '../types';
@@ -17,6 +18,10 @@ type HomeRouteProp = RouteProp<MainTabParamList, 'Home'>;
 type DetailNavigation = NativeStackNavigationProp<RootStackParamList>;
 type TabNavigation = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 
+
+function isOfflineError(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
+}
 export function HomeScreen() {
   const route = useRoute<HomeRouteProp>();
   const navigation = useNavigation<DetailNavigation>();
@@ -30,11 +35,14 @@ export function HomeScreen() {
 
   const data = useMemo(() => giveawaysQuery.data ?? [], [giveawaysQuery.data]);
 
+  const offline = isOfflineError(giveawaysQuery.error);
+
   if (giveawaysQuery.isLoading && !Array.isArray(giveawaysQuery.data)) {
     return <LoadingState label="Gewinnspiele werden geladen…" />;
   }
 
   if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data)) {
+    if (offline) return <OfflineState message={(giveawaysQuery.error as Error).message} onRetry={() => giveawaysQuery.refetch()} />;
     return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={() => giveawaysQuery.refetch()} />;
   }
 
