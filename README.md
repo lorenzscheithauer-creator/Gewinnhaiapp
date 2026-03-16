@@ -94,10 +94,21 @@ In `app.json`:
 
 ```json
 "extra": {
-  "apiBaseUrl": "https://www.gewinnhai.de/api",
+  "apiBaseUrl": "https://www.gewinnhai.de",
   "apiTimeoutMs": 10000
 }
 ```
+
+
+### Reale Datenquellen (priorisiert + kompatible Fallbacks)
+Die App fragt jetzt **mehrere bestehende Endpunkte in Reihenfolge** ab und nutzt den ersten funktionierenden Treffer:
+
+- Gewinnspiele: `/api/giveaways` → Fallback `/wp-json/wp/v2/posts?_embed=1`
+- Gewinnspiel-Detail: `/api/giveaways/{idOrSlug}` → Fallback `/wp-json/wp/v2/posts/{id}` oder `?slug=...`
+- Kategorien: `/api/categories` → Fallback `/wp-json/wp/v2/categories`
+- Top10: `/api/top10` → Fallback `/wp-json/wp/v2/posts?tags=top10&_embed=1`
+
+Damit bleibt die App mit bestehender PHP/API-Logik kompatibel und kann gleichzeitig mit vorhandenen WordPress-REST-Daten arbeiten, ohne neue Datenbasis.
 
 Wenn eure Website aktuell andere Endpunkte/Response-Formate nutzt, muss nur `src/api/giveaways.ts` angepasst werden. UI und App-Architektur bleiben unverändert.
 
