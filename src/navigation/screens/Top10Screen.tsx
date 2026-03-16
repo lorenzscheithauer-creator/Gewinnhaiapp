@@ -1,4 +1,4 @@
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -20,6 +20,31 @@ export function Top10Screen() {
   useRefetchOnFocus(top10Query.refetch);
   const offline = isOfflineError(top10Query.error);
 
+  const openExternal = async (url: string) => {
+    const canOpen = await Linking.canOpenURL(url);
+    if (!canOpen) {
+      Alert.alert('Link nicht verfügbar', 'Dieser Gewinnspiel-Link kann auf dem Gerät nicht geöffnet werden.');
+      return;
+    }
+
+    await Linking.openURL(url);
+  };
+
+  const openDetail = (item: TopItem) => {
+    const idOrSlug = item.giveawayId || item.giveawaySlug;
+    if (idOrSlug) {
+      navigation.navigate('GiveawayDetail', { idOrSlug });
+      return;
+    }
+
+    if (item.sourceUrl) {
+      void openExternal(item.sourceUrl);
+      return;
+    }
+
+    Alert.alert('Kein Detail verfügbar', 'Für diesen Eintrag ist aktuell weder Detailseite noch Link vorhanden.');
+  };
+
   if (top10Query.isPending && !Array.isArray(top10Query.data)) {
     return <LoadingState label="Top10 wird geladen…" />;
   }
@@ -40,16 +65,14 @@ export function Top10Screen() {
         refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
         ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." />}
         renderItem={({ item }: { item: TopItem }) => (
-          <Pressable
-            disabled={!item.giveawayId}
-            onPress={() => item.giveawayId && navigation.navigate('GiveawayDetail', { idOrSlug: item.giveawayId })}
-            style={styles.item}
-          >
+          <Pressable onPress={() => openDetail(item)} style={styles.item}>
             <Text style={styles.rank}>#{item.rank}</Text>
             <View style={styles.textContainer}>
               <Text style={styles.title}>{item.title}</Text>
               {item.teaser ? <Text style={styles.teaser}>{item.teaser}</Text> : null}
-              {!item.giveawayId ? <Text style={styles.hint}>Detail-Link wird bereitgestellt, sobald Backend-ID vorhanden ist.</Text> : null}
+              {!item.giveawayId && !item.giveawaySlug && item.sourceUrl ? (
+                <Text style={styles.hint}>Öffnet direkt den externen Gewinnspiel-Link.</Text>
+              ) : null}
             </View>
           </Pressable>
         )}

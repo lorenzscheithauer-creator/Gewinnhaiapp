@@ -9,7 +9,7 @@ export function useGiveawayDetail(idOrSlug: string) {
     enabled: Boolean(idOrSlug),
     staleTime: 2 * 60_000,
     gcTime: 45 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,

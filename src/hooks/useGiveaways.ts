@@ -11,10 +11,11 @@ export function useGiveaways(params?: SearchParams) {
     queryFn: () => fetchGiveaways(params),
     staleTime: 2 * 60_000,
     gcTime: 45 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: params?.query ? false : BACKGROUND_REFRESH_MS,
+    refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
     networkMode: 'online'
   });
@@ -26,10 +27,11 @@ export function useCategories() {
     queryFn: fetchCategories,
     staleTime: 20 * 60_000,
     gcTime: 2 * 60 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: 60 * 60_000,
+    refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
     networkMode: 'online'
   });
@@ -41,10 +43,11 @@ export function useTop10() {
     queryFn: fetchTop10,
     staleTime: 10 * 60_000,
     gcTime: 45 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: BACKGROUND_REFRESH_MS,
+    refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
     networkMode: 'online'
   });

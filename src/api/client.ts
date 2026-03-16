@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { ENV } from '../config/env';
 
 const RETRY_ATTEMPTS = 2;
-const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function tryParseJsonPayload(data: unknown): unknown {
   if (typeof data !== 'string') return data;
@@ -31,6 +31,30 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function enrichHttpError(error: AxiosError): AxiosError {
+  const status = error.response?.status;
+  const payload = error.response?.data;
+  const payloadIsHtml = typeof payload === 'string' && payload.toLowerCase().includes('<html');
+
+  if (!error.response) {
+    error.message = 'Netzwerkfehler: GewinnHai ist aktuell nicht erreichbar.';
+  } else if (status === 404) {
+    error.message = 'Eintrag nicht gefunden.';
+  } else if (status === 403) {
+    error.message = 'Zugriff abgelehnt (403). Bitte später erneut versuchen.';
+  } else if (status === 429) {
+    error.message = 'Zu viele Anfragen. Bitte kurz warten und erneut versuchen.';
+  } else if (status && status >= 500) {
+    error.message = 'GewinnHai-Serverfehler. Bitte später erneut versuchen.';
+  }
+
+  if (payloadIsHtml && !error.message.toLowerCase().includes('server')) {
+    error.message = 'Unerwartete Antwort vom Server erhalten. Bitte später erneut versuchen.';
+  }
+
+  return error;
+}
+
 const defaultTransformResponse = axios.defaults.transformResponse;
 const transformResponse = Array.isArray(defaultTransformResponse)
   ? defaultTransformResponse
@@ -52,20 +76,17 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (rawError: AxiosError) => {
+    const error = enrichHttpError(rawError);
     const config = error.config as AxiosRequestConfig & { __retryCount?: number };
 
     if (config && canRetry(error)) {
       config.__retryCount = config.__retryCount ?? 0;
       if (config.__retryCount < RETRY_ATTEMPTS) {
         config.__retryCount += 1;
-        await sleep(300 * config.__retryCount);
+        await sleep(400 * config.__retryCount);
         return apiClient.request(config);
       }
-    }
-
-    if (error.response?.status === 404) {
-      error.message = 'Eintrag nicht gefunden.';
     }
 
     return Promise.reject(error);
