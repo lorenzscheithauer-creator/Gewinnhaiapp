@@ -51,20 +51,52 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, '>');
 }
 
+function normalizeText(value: unknown): string | undefined {
+  const text = asString(value);
+  if (!text) return undefined;
+  const sanitized = decodeHtmlEntities(text).replace(/\s+/g, ' ').trim();
+  return sanitized || undefined;
+}
+
 function normalizeUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  if (value.startsWith('//')) return `https:${value}`;
-  if (value.startsWith('/')) return `https://www.gewinnhai.de${value}`;
-  return value;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('www.')) {
+    return `https://${trimmed}`;
+  }
+
+  if (trimmed.startsWith('mailto:') || trimmed.startsWith('tel:')) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) return `https://www.gewinnhai.de${trimmed}`;
+
+  return `https://${trimmed}`;
 }
 
 function normalizeDate(value: unknown): string | undefined {
-  const dateString = asString(value);
+  const dateString = normalizeText(value);
   if (!dateString) return undefined;
 
   const parsed = new Date(dateString);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString();
+  }
+
+  const deDate = dateString.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (deDate) {
+    const [, day, month, year] = deDate;
+    const parsedDeDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00Z`);
+    if (!Number.isNaN(parsedDeDate.getTime())) {
+      return parsedDeDate.toISOString();
+    }
   }
 
   return dateString;
@@ -78,7 +110,7 @@ function stripHtml(raw: string | undefined): string | undefined {
 function extractWpField(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   const record = asRecord(value);
-  return asString(record.rendered);
+  return asString(record.rendered ?? record.raw);
 }
 
 function extractWpCategoryId(item: Record<string, unknown>): string | undefined {
@@ -127,6 +159,21 @@ function extractAfcValue(item: Record<string, unknown>, key: string): unknown {
   return acf[key];
 }
 
+function toSlug(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß]+/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function fallbackId(item: Record<string, unknown>, title: string | undefined): string | undefined {
+  const sourceUrl = normalizeUrl(firstString(item.link, item.source_url, item.url));
+  if (sourceUrl) return sourceUrl;
+  return toSlug(title);
+}
+
 export function mapGiveaway(raw: unknown): Giveaway {
   const item = asRecord(raw);
   const wpTitle = stripHtml(extractWpField(item.title));
@@ -134,17 +181,22 @@ export function mapGiveaway(raw: unknown): Giveaway {
   const wpDescription = stripHtml(extractWpField(item.content));
   const seoLinkSlug = extractGiveawayIdFromWpLink(item.link);
 
+  const normalizedTitle = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? '';
+  const normalizedTeaser = normalizeText(
+    firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description, extractAfcValue(item, 'subtitle'))
+  );
   const id =
     firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url, extractAfcValue(item, 'giveaway_id'), seoLinkSlug) ??
-    firstString(wpTitle, item.name, item.headline, item.url);
-  const slug = firstString(item.slug, item.seo_slug, seoLinkSlug, item.id, item.giveaway_id) ?? id ?? 'unknown';
+    firstString(wpTitle, item.name, item.headline, item.url) ??
+    fallbackId(item, normalizedTitle);
+  const slug = firstString(item.slug, item.seo_slug, seoLinkSlug, item.id, item.giveaway_id, toSlug(normalizedTitle)) ?? id ?? 'unknown';
 
   return {
     id: id ?? 'unknown',
     slug,
-    title: firstString(wpTitle, item.title, item.name, item.headline) ?? '',
-    teaser: firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description, extractAfcValue(item, 'subtitle')) ?? '',
-    description: firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description')),
+    title: normalizedTitle,
+    teaser: normalizedTeaser ?? '',
+    description: normalizeText(firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description'))),
     imageUrl: normalizeUrl(
       firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractAfcValue(item, 'image'), extractWordpressImage(item))
     ),
@@ -163,11 +215,11 @@ export function mapGiveaway(raw: unknown): Giveaway {
 export function mapCategory(raw: unknown): Category {
   const item = asRecord(raw);
   const wpTitle = stripHtml(extractWpField(item.name));
-  const title = firstString(item.title, wpTitle, item.name, item.label) ?? '';
+  const title = normalizeText(firstString(item.title, wpTitle, item.name, item.label)) ?? '';
 
   return {
     id: firstString(item.id, item.category_id, item.slug, title) ?? 'unknown',
-    slug: firstString(item.slug, item.seo_slug, item.id, title) ?? (title.toLowerCase().replace(/\s+/g, '-') || 'unknown'),
+    slug: firstString(item.slug, item.seo_slug, item.id, toSlug(title)) ?? (toSlug(title) || 'unknown'),
     title,
     iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail, asRecord(item.acf).icon))
   };
@@ -189,11 +241,12 @@ export function mapTopItem(raw: unknown, index: number): TopItem {
     item.id
   );
 
+  const title = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? '';
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
     rank: asNumber(item.rank ?? item.position ?? item.place ?? asRecord(item.acf).rank) ?? index + 1,
-    title: firstString(wpTitle, item.title, item.name, item.headline) ?? '',
-    teaser: firstString(wpTeaser, item.teaser, item.summary, item.description),
+    title,
+    teaser: normalizeText(firstString(wpTeaser, item.teaser, item.summary, item.description)),
     giveawayId,
     giveawaySlug,
     sourceUrl: normalizeUrl(firstString(item.sourceUrl, item.source_url, item.link, item.url, asRecord(item.guid).rendered))
@@ -243,6 +296,16 @@ export function extractList(rawData: unknown, nestedKeys: string[] = []): unknow
   for (const value of Object.values(record)) {
     if (Array.isArray(value)) {
       return value;
+    }
+
+    if (value && typeof value === 'object') {
+      const nestedValues = Object.values(value as Record<string, unknown>);
+      if (nestedValues.every((entry) => entry && typeof entry === 'object')) {
+        const objectList = nestedValues as unknown[];
+        if (objectList.length) {
+          return objectList;
+        }
+      }
     }
   }
 

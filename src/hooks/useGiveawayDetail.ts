@@ -13,6 +13,6 @@ export function useGiveawayDetail(idOrSlug: string) {
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
-    networkMode: 'online'
+    networkMode: 'offlineFirst'
   });
 }

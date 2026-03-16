@@ -60,11 +60,11 @@ export function HomeScreen() {
       ) : null}
       <FlatList
         data={data}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `${item.id}:${item.slug}:${index}`}
         refreshControl={
           <RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />
         }
-        ListEmptyComponent={<EmptyState title="Keine Treffer" message="Passe die Suche oder Filter an." />}
+        ListEmptyComponent={<EmptyState title="Keine Treffer" message="Passe die Suche oder Filter an." onRetry={() => giveawaysQuery.refetch()} />}
         renderItem={({ item }: { item: Giveaway }) => (
           <GiveawayCard
             item={item}

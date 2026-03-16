@@ -17,7 +17,7 @@ export function useGiveaways(params?: SearchParams) {
     refetchInterval: params?.query ? false : BACKGROUND_REFRESH_MS,
     refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
-    networkMode: 'online'
+    networkMode: 'offlineFirst'
   });
 }
 
@@ -33,7 +33,7 @@ export function useCategories() {
     refetchInterval: 60 * 60_000,
     refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
-    networkMode: 'online'
+    networkMode: 'offlineFirst'
   });
 }
 
@@ -49,6 +49,6 @@ export function useTop10() {
     refetchInterval: BACKGROUND_REFRESH_MS,
     refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
-    networkMode: 'online'
+    networkMode: 'offlineFirst'
   });
 }

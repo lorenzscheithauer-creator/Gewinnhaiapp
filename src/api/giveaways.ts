@@ -127,8 +127,8 @@ function buildWpPostParams(params?: SearchParams): Record<string, string | numbe
 }
 
 function parseWpDetailId(idOrSlug: string): string {
-  const normalized = idOrSlug.trim();
-  if (/^\d+$/.test(normalized)) return normalized;
+  const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '');
+  if (/^\d+$/.test(normalized)) return `${normalized}?_embed=1`;
   return `?slug=${encodeURIComponent(normalized)}&_embed=1`;
 }
 
@@ -149,11 +149,13 @@ function hasMeaningfulText(value: string | undefined): boolean {
 }
 
 function sanitizeGiveawayList(items: Giveaway[]): Giveaway[] {
-  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title));
+  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title)).slice(0, 150);
 }
 
 function sanitizeCategoryList(items: Category[]): Category[] {
-  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title));
+  return items
+    .filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title))
+    .sort((left, right) => left.title.localeCompare(right.title, 'de'));
 }
 
 function sanitizeTop10(items: TopItem[]): TopItem[] {
@@ -210,6 +212,22 @@ async function resolveWpTagIdBySlug(slug: string): Promise<number | undefined> {
   return undefined;
 }
 
+
+function toDetailCandidates(idOrSlug: string): string[] {
+  const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '');
+  if (!normalized) return [];
+
+  const candidates = [normalized];
+  const withoutQuery = normalized.split('?')[0];
+  const slugCandidate = withoutQuery.split('/').pop();
+  if (slugCandidate && slugCandidate !== normalized) candidates.push(slugCandidate);
+
+  const numericFromSlug = slugCandidate?.match(/-(\d+)$/)?.[1];
+  if (numericFromSlug) candidates.push(numericFromSlug);
+
+  return Array.from(new Set(candidates));
+}
+
 function fallbackTop10FromGiveaways(giveaways: Giveaway[]): TopItem[] {
   return giveaways.slice(0, 10).map((item, index) => ({
     id: `fallback-${item.id}`,
@@ -251,29 +269,50 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 }
 
 export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
-  const cacheKey = CACHE_KEYS.giveawayDetail(idOrSlug);
+  const candidates = toDetailCandidates(idOrSlug);
+  const cacheKeys = candidates.length ? candidates.map((candidate) => CACHE_KEYS.giveawayDetail(candidate)) : [CACHE_KEYS.giveawayDetail(idOrSlug)];
 
   try {
     const detail = await tryEndpoints(ENV.endpoints.giveawayDetail, async (endpoint) => {
-      const target = endpoint
-        .replace('{idOrSlug}', endpoint.includes('/wp-json/') ? parseWpDetailId(idOrSlug) : encodeURIComponent(idOrSlug))
-        .replace(/\/\/{2,}/g, '/');
-      const { data } = await apiClient.get<ApiGiveawayDetailResponse>(target);
-      const extracted = extractDetail(data);
-      const item = Array.isArray(extracted) ? extracted[0] : extracted;
-      const mapped = mapGiveaway(item);
+      let lastError: unknown;
 
-      if (mapped.id === 'unknown' || !hasMeaningfulText(mapped.title)) {
-        throw new Error('Ungültige Detaildaten von der API erhalten.');
+      for (const candidate of candidates.length ? candidates : [idOrSlug]) {
+        try {
+          const target = endpoint
+            .replace('{idOrSlug}', endpoint.includes('/wp-json/') ? parseWpDetailId(candidate) : encodeURIComponent(candidate))
+            .replace(/\/\/{2,}/g, '/');
+          const { data } = await apiClient.get<ApiGiveawayDetailResponse>(target);
+          const extracted = extractDetail(data);
+          const item = Array.isArray(extracted) ? extracted[0] : extracted;
+          const mapped = mapGiveaway(item);
+
+          if (mapped.id === 'unknown' || !hasMeaningfulText(mapped.title)) {
+            throw new Error('Ungültige Detaildaten von der API erhalten.');
+          }
+
+          return mapped;
+        } catch (error) {
+          lastError = error;
+        }
       }
 
-      return mapped;
+      throw lastError;
     });
 
-    await setCache(cacheKey, detail, { ttlMs: CACHE_TTL.giveawayDetail });
+    await Promise.all(cacheKeys.map((cacheKey) => setCache(cacheKey, detail, { ttlMs: CACHE_TTL.giveawayDetail })));
     return detail;
   } catch (err) {
-    return fallbackCache<Giveaway>(cacheKey, err);
+    for (const cacheKey of cacheKeys) {
+      const cached = await getCache<Giveaway>(cacheKey);
+      if (cached) return cached;
+    }
+
+    for (const cacheKey of cacheKeys) {
+      const cached = await getCache<Giveaway>(cacheKey, { allowExpired: true });
+      if (cached) return cached;
+    }
+
+    throw new Error(getErrorMessage(err));
   }
 }
 

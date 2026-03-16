@@ -61,9 +61,9 @@ export function Top10Screen() {
       ) : null}
       <FlatList
         data={top10Query.data ?? []}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `${item.id}:${item.rank}:${index}`}
         refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
-        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." />}
+        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={() => top10Query.refetch()} />}
         renderItem={({ item }: { item: TopItem }) => (
           <Pressable onPress={() => openDetail(item)} style={styles.item}>
             <Text style={styles.rank}>#{item.rank}</Text>

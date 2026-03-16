@@ -31,7 +31,11 @@
       "requireFullScreen": true,
       "infoPlist": {
         "CFBundleDisplayName": "Gewinnhai"
-      }
+      },
+      "associatedDomains": [
+        "applinks:gewinnhai.de",
+        "applinks:www.gewinnhai.de"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -42,6 +46,28 @@
       "versionCode": 1,
       "permissions": [
         "INTERNET"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "gewinnhai.de",
+              "pathPrefix": "/gewinnspiel"
+            },
+            {
+              "scheme": "https",
+              "host": "www.gewinnhai.de",
+              "pathPrefix": "/gewinnspiel"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "extra": {
@@ -65,6 +91,10 @@
           "/wp-json/wp/v2/posts"
         ]
       }
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#ffffff",
+      "barStyle": "dark-content"
     }
   }
 }
