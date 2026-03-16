@@ -12,6 +12,7 @@ import { GiveawayDetailScreen } from './src/navigation/screens/GiveawayDetailScr
 import { HomeScreen } from './src/navigation/screens/HomeScreen';
 import { Top10Screen } from './src/navigation/screens/Top10Screen';
 import { MainTabParamList, RootStackParamList } from './src/navigation/types';
+import { log } from './src/utils/logger';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +85,7 @@ export default function App() {
       focusManager.setFocused(isActive);
 
       if (isActive) {
+        log('debug', 'App returned to foreground. Refetching active queries.');
         queryClient.invalidateQueries({
           refetchType: 'active'
         });

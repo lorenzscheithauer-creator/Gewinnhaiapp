@@ -1,20 +1,36 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchCategories, fetchGiveaways, fetchTop10 } from '../api/giveaways';
+import { giveawaysRepository } from '../data/giveawaysRepository';
+import { ENV } from '../config/env';
 import { SearchParams } from '../types/models';
 
 const BACKGROUND_REFRESH_MS = 5 * 60_000;
 
+function normalizeSearchParams(params?: SearchParams): SearchParams | undefined {
+  if (!params) return undefined;
+
+  const query = params.query?.trim();
+  const categoryId = params.categoryId?.trim();
+
+  return {
+    query: query && query.length >= 2 ? query : undefined,
+    categoryId: categoryId || undefined
+  };
+}
+
 export function useGiveaways(params?: SearchParams) {
+  const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.query]);
+
   return useQuery({
-    queryKey: ['giveaways', params],
-    queryFn: () => fetchGiveaways(params),
-    staleTime: 2 * 60_000,
-    gcTime: 45 * 60_000,
+    queryKey: ['giveaways', normalizedParams],
+    queryFn: () => giveawaysRepository.list(normalizedParams),
+    staleTime: ENV.query.listStaleMs,
+    gcTime: ENV.query.listGcMs,
     refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
-    refetchInterval: params?.query ? false : BACKGROUND_REFRESH_MS,
+    refetchInterval: normalizedParams?.query ? false : BACKGROUND_REFRESH_MS,
     refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
     networkMode: 'offlineFirst'
@@ -24,7 +40,7 @@ export function useGiveaways(params?: SearchParams) {
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
-    queryFn: fetchCategories,
+    queryFn: giveawaysRepository.categories,
     staleTime: 20 * 60_000,
     gcTime: 2 * 60 * 60_000,
     refetchOnMount: 'always',
@@ -40,9 +56,9 @@ export function useCategories() {
 export function useTop10() {
   return useQuery({
     queryKey: ['top10'],
-    queryFn: fetchTop10,
+    queryFn: giveawaysRepository.top10,
     staleTime: 10 * 60_000,
-    gcTime: 45 * 60_000,
+    gcTime: ENV.query.listGcMs,
     refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
