@@ -22,8 +22,16 @@ function asStringFromUnknown(value: unknown): string | undefined {
     return asString(value);
   }
 
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const nested = asStringFromUnknown(entry);
+      if (nested) return nested;
+    }
+    return undefined;
+  }
+
   const record = asRecord(value);
-  return firstString(record.rendered, record.raw, record.value, record.label, record.text, record.title);
+  return firstString(record.rendered, record.raw, record.value, record.label, record.text, record.title, record.name);
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -152,13 +160,13 @@ function stripHtml(raw: string | undefined): string | undefined {
 }
 
 function extractUrlFromHtml(value: unknown): string | undefined {
-  const text = asString(value);
+  const text = asStringFromUnknown(value);
   if (!text) return undefined;
 
-  const href = text.match(/href\s*=\s*['"]([^'"]+)['"]/i)?.[1];
+  const href = text.match(/(?:href|data-href|data-url)\s*=\s*['"]([^'"]+)['"]/i)?.[1];
   if (href) return normalizeUrl(href);
 
-  const plainUrl = text.match(/https?:\/\/[^\s'"]+/i)?.[0];
+  const plainUrl = text.match(/https?:\/\/[^\s'"<>]+/i)?.[0];
   if (plainUrl) return normalizeUrl(plainUrl);
 
   return undefined;
@@ -258,24 +266,28 @@ function extractYoastImage(value: unknown): string | undefined {
 }
 
 function extractSourceUrl(item: Record<string, unknown>, acf: Record<string, unknown>): string | undefined {
-  const externalCandidate = normalizeUrl(
-    firstString(
-      item.sourceUrl,
-      item.source_url,
-      extractUrlFromObject(item.source),
-      extractUrlFromObject(item.external_link),
-      extractAfcValue(item, 'source_url'),
-      extractAfcValue(item, 'external_url'),
-      extractAfcValue(item, 'affiliate_link'),
-      acf.source_url,
-      acf.external_url,
-      acf.affiliate_link,
-      extractUrlFromHtml(item.content),
-      extractUrlFromHtml(extractWpField(item.content))
-    )
-  );
+  const explicitCandidates = [
+    item.sourceUrl,
+    item.source_url,
+    extractUrlFromObject(item.source),
+    extractUrlFromObject(item.external_link),
+    extractAfcValue(item, 'source_url'),
+    extractAfcValue(item, 'external_url'),
+    extractAfcValue(item, 'affiliate_link'),
+    acf.source_url,
+    acf.external_url,
+    acf.affiliate_link,
+    extractUrlFromHtml(item.content),
+    extractUrlFromHtml(extractWpField(item.content))
+  ]
+    .map((entry) => normalizeUrl(asStringFromUnknown(entry)))
+    .filter(Boolean) as string[];
 
-  if (externalCandidate) return externalCandidate;
+  const nonGewinnhaiCandidate = explicitCandidates.find((entry) => !isGewinnhaiUrl(entry));
+  if (nonGewinnhaiCandidate) return nonGewinnhaiCandidate;
+
+  const explicitCandidate = explicitCandidates[0];
+  if (explicitCandidate) return explicitCandidate;
 
   const fallbackCandidate = normalizeUrl(firstString(item.url, item.link, item.permalink, item.guid && asRecord(item.guid).rendered));
   if (fallbackCandidate && !isGewinnhaiUrl(fallbackCandidate)) {

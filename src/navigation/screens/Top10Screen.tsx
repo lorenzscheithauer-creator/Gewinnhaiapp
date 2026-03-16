@@ -11,6 +11,7 @@ import { TopItem } from '../../types/models';
 import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { openExternalUrl } from '../../utils/links';
 import { RootStackParamList } from '../types';
+import { resolveGiveawayNavigationId } from '../../utils/giveaway';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -29,7 +30,7 @@ export function Top10Screen() {
   };
 
   const openDetail = (item: TopItem) => {
-    const idOrSlug = (item.giveawayId || item.giveawaySlug)?.trim();
+    const idOrSlug = resolveGiveawayNavigationId(item);
     if (idOrSlug) {
       navigation.navigate('GiveawayDetail', { idOrSlug });
       return;

@@ -12,6 +12,14 @@ import { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GiveawayDetail'>;
 
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function formatExpiresAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -19,7 +27,7 @@ function formatExpiresAt(value: string): string {
 }
 
 export function GiveawayDetailScreen({ route }: Props) {
-  const normalizedIdOrSlug = decodeURIComponent(route.params.idOrSlug).trim();
+  const normalizedIdOrSlug = safeDecode(route.params.idOrSlug).trim();
   const detailQuery = useGiveawayDetail(normalizedIdOrSlug);
   useRefetchOnFocus(detailQuery.refetch, { minIntervalMs: 15_000 });
   const offline = isOfflineError(detailQuery.error);
