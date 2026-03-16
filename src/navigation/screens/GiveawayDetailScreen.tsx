@@ -42,6 +42,9 @@ export function GiveawayDetailScreen({ route }: Props) {
 
   const item = detailQuery.data;
 
+  const canonicalGewinnhaiUrl = item.slug ? `https://www.gewinnhai.de/gewinnspiel/${encodeURIComponent(item.slug)}` : undefined;
+  const actionUrl = item.sourceUrl ?? canonicalGewinnhaiUrl;
+
   if (!item) {
     return <EmptyState title="Keine Details verfügbar" message="Für dieses Gewinnspiel sind aktuell keine Live-Details verfügbar." />;
   }
@@ -69,8 +72,8 @@ export function GiveawayDetailScreen({ route }: Props) {
           onRetry={() => detailQuery.refetch()}
         />
       )}
-      {item.sourceUrl ? (
-        <Pressable style={styles.button} onPress={() => item.sourceUrl && openSource(item.sourceUrl)}>
+      {actionUrl ? (
+        <Pressable style={styles.button} onPress={() => actionUrl && openSource(actionUrl)}>
           <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
         </Pressable>
       ) : (
