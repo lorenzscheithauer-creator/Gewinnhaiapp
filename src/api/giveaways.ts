@@ -47,6 +47,22 @@ function createCacheKey(base: string, params?: SearchParams): string {
   return `${base}:${stableSerialize(params)}`;
 }
 
+function normalizeSearchParams(params?: SearchParams): SearchParams | undefined {
+  if (!params) return undefined;
+
+  const query = params.query?.trim();
+  const categoryId = params.categoryId?.trim();
+  const categorySlug = params.categorySlug?.trim().toLowerCase();
+
+  const normalized: SearchParams = {
+    query: query && query.length >= 2 ? query : undefined,
+    categoryId: categoryId || undefined,
+    categorySlug: categorySlug || undefined
+  };
+
+  return normalized.query || normalized.categoryId || normalized.categorySlug ? normalized : undefined;
+}
+
 function getErrorMessage(err: unknown): string {
   if (err instanceof AxiosError) {
     const apiData = err.response?.data as Record<string, unknown> | undefined;
@@ -95,6 +111,7 @@ function buildLegacyGiveawayParams(params?: SearchParams): Record<string, string
 
   const query = params.query?.trim();
   const categoryId = params.categoryId?.trim();
+  const categorySlug = params.categorySlug?.trim();
 
   return {
     ...(query
@@ -109,6 +126,12 @@ function buildLegacyGiveawayParams(params?: SearchParams): Record<string, string
           category: categoryId,
           category_id: categoryId
         }
+      : {}),
+    ...(categorySlug
+      ? {
+          category_slug: categorySlug,
+          categorySlug
+        }
       : {})
   };
 }
@@ -116,6 +139,7 @@ function buildLegacyGiveawayParams(params?: SearchParams): Record<string, string
 function buildWpPostParams(params?: SearchParams): Record<string, string | number> {
   const query = params?.query?.trim();
   const categoryId = params?.categoryId?.trim();
+  const categorySlug = params?.categorySlug?.trim();
 
   return {
     per_page: 25,
@@ -123,7 +147,8 @@ function buildWpPostParams(params?: SearchParams): Record<string, string | numbe
     orderby: 'date',
     order: 'desc',
     ...(query ? { search: query } : {}),
-    ...(categoryId ? { categories: categoryId } : {})
+    ...(categoryId ? { categories: categoryId } : {}),
+    ...(categorySlug ? { categories_slug: categorySlug } : {})
   };
 }
 
@@ -164,6 +189,8 @@ function mergeGiveawayWithFallback(primary: Giveaway, fallback?: Giveaway | null
     imageUrl: primary.imageUrl ?? fallback.imageUrl,
     sourceUrl: primary.sourceUrl ?? fallback.sourceUrl,
     categoryId: primary.categoryId ?? fallback.categoryId,
+    categorySlug: primary.categorySlug ?? fallback.categorySlug,
+    categoryLabel: primary.categoryLabel ?? fallback.categoryLabel,
     expiresAt: primary.expiresAt ?? fallback.expiresAt
   };
 }
@@ -304,26 +331,46 @@ function hasDirectTop10Reference(items: unknown[]): boolean {
   return items.some((item) => includesTop10Hint((item && typeof item === 'object' ? item : {}) as Record<string, unknown>));
 }
 
+function filterGiveawaysByCategory(items: Giveaway[], params?: SearchParams): Giveaway[] {
+  if (!params?.categoryId && !params?.categorySlug) return items;
+
+  const normalizedId = params.categoryId?.trim();
+  const normalizedSlug = params.categorySlug?.trim().toLowerCase();
+
+  return items.filter((item) => {
+    const idMatches = normalizedId ? item.categoryId === normalizedId : false;
+    const slugMatches = normalizedSlug
+      ? [item.categorySlug, item.categoryLabel]
+          .map((entry) => String(entry ?? '').toLowerCase().trim())
+          .some((entry) => entry === normalizedSlug)
+      : false;
+
+    return normalizedId && normalizedSlug ? idMatches || slugMatches : idMatches || slugMatches;
+  });
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
-  const cacheKey = createCacheKey(CACHE_KEYS.giveaways, params);
+  const normalizedParams = normalizeSearchParams(params);
+  const cacheKey = createCacheKey(CACHE_KEYS.giveaways, normalizedParams);
 
   try {
     const list = await tryEndpoints(ENV.endpoints.giveaways, async (endpoint) => {
-      const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(params) : buildLegacyGiveawayParams(params);
+      const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(normalizedParams) : buildLegacyGiveawayParams(normalizedParams);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
       const sanitized = sanitizeGiveawayList(uniqueById(mapped));
+      const filtered = filterGiveawaysByCategory(sanitized, normalizedParams);
 
-      if (!sanitized.length) {
+      if (!filtered.length) {
         throw new Error('Es wurden keine verwertbaren Live-Gewinnspiele geliefert.');
       }
 
-      return sanitized;
+      return filtered;
     });
 
     await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
     log('info', 'Giveaways synced from API.', { count: list.length, cacheKey });
-    if (!params?.query && !params?.categoryId) {
+    if (!normalizedParams?.query && !normalizedParams?.categoryId && !normalizedParams?.categorySlug) {
       await persistFeedSnapshot(list);
     }
 

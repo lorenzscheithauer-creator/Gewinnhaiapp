@@ -13,6 +13,8 @@ export interface Giveaway {
   description?: string;
   imageUrl?: string;
   categoryId?: string;
+  categorySlug?: string;
+  categoryLabel?: string;
   expiresAt?: string;
   sourceUrl?: string;
   featured?: boolean;
@@ -31,4 +33,5 @@ export interface TopItem {
 export interface SearchParams {
   query?: string;
   categoryId?: string;
+  categorySlug?: string;
 }

@@ -11,6 +11,7 @@ import { CategoriesScreen } from './src/navigation/screens/CategoriesScreen';
 import { GiveawayDetailScreen } from './src/navigation/screens/GiveawayDetailScreen';
 import { HomeScreen } from './src/navigation/screens/HomeScreen';
 import { Top10Screen } from './src/navigation/screens/Top10Screen';
+import { SearchScreen } from './src/navigation/screens/SearchScreen';
 import { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { log } from './src/utils/logger';
 
@@ -42,7 +43,8 @@ const linking: LinkingOptions<RootStackParamList> = {
         screens: {
           Home: 'home',
           Categories: 'categories',
-          Top10: 'top10'
+          Top10: 'top10',
+          Search: 'suche'
         }
       },
       GiveawayDetail: {
@@ -74,6 +76,7 @@ function MainTabs() {
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: 'Start' }} />
       <Tabs.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Kategorien' }} />
       <Tabs.Screen name="Top10" component={Top10Screen} options={{ title: 'Top10' }} />
+      <Tabs.Screen name="Search" component={SearchScreen} options={{ title: 'Suche' }} />
     </Tabs.Navigator>
   );
 }
