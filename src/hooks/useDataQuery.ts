@@ -8,7 +8,6 @@ interface UseDataQueryOptions<TData> {
   gcTime: number;
   refetchInterval?: number | false;
   enabled?: boolean;
-  backgroundRefreshWhenSearching?: boolean;
 }
 
 const DEFAULT_BACKGROUND_REFRESH_MS = 5 * 60_000;

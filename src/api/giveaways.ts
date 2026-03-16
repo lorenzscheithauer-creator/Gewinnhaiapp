@@ -77,6 +77,40 @@ function getErrorMessage(err: unknown): string {
   return 'Unbekannter Fehler.';
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function extractPayloadStatus(data: Record<string, unknown>): number | undefined {
+  const statusCandidate = data.status ?? asRecord(data.data).status;
+  const parsed = Number(statusCandidate);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function ensureApiPayloadValid(data: unknown): void {
+  if (typeof data === 'string') {
+    const trimmed = data.trim().toLowerCase();
+    if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.startsWith('<?xml')) {
+      throw new Error('Unerwartete Antwort vom Server erhalten. Bitte später erneut versuchen.');
+    }
+
+    return;
+  }
+
+  const record = asRecord(data);
+  if (!Object.keys(record).length) return;
+
+  const status = extractPayloadStatus(record);
+  const message = typeof record.message === 'string' ? record.message.trim() : undefined;
+  const isErrorPayload =
+    Boolean(record.error || record.errors || record.success === false || record.ok === false || record.wp_error) ||
+    (Boolean(message) && Boolean(status && status >= 400));
+
+  if (isErrorPayload) {
+    throw new Error(message || `API-Fehler (${status ?? 'unbekannt'}). Bitte später erneut versuchen.`);
+  }
+}
+
 async function fallbackCache<T>(cacheKey: string, err: unknown): Promise<T> {
   const freshCached = await getCache<T>(cacheKey);
   if (freshCached) return freshCached;
@@ -138,7 +172,7 @@ function buildWpPostParams(params?: SearchParams): Record<string, string | numbe
 }
 
 function parseWpDetailId(idOrSlug: string): string {
-  const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '');
+  const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '').split('?')[0];
   if (/^\d+$/.test(normalized)) return `${normalized}?_embed=1`;
   return `?slug=${encodeURIComponent(normalized)}&_embed=1`;
 }
@@ -321,6 +355,15 @@ function toDetailCandidates(idOrSlug: string): string[] {
   if (!normalized) return [];
 
   const candidates = [normalized, safeDecode(normalized)];
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const url = new URL(normalized);
+      candidates.push(url.pathname.replace(/^\/+|\/+$/g, ''));
+    } catch {
+      // ignore malformed url input, handled by generic candidates
+    }
+  }
+
   const withoutQuery = normalized.split('?')[0];
   const slugCandidate = withoutQuery.split('/').pop();
   if (slugCandidate && slugCandidate !== normalized) candidates.push(slugCandidate);
@@ -457,6 +500,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
     const list = await tryEndpoints(ENV.endpoints.giveaways, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(normalizedParams) : buildLegacyGiveawayParams(normalizedParams);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
+      ensureApiPayloadValid(data);
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
       const sanitized = sanitizeGiveawayList(mapped);
       const filtered = applyLocalFilters(sanitized, normalizedParams);
@@ -501,6 +545,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
             .replace('{idOrSlug}', endpoint.includes('/wp-json/') ? parseWpDetailId(candidate) : encodeURIComponent(candidate))
             .replace(/\/\/{2,}/g, '/');
           const { data } = await apiClient.get<ApiGiveawayDetailResponse>(target);
+          ensureApiPayloadValid(data);
           const extracted = extractDetail(data);
           const item = Array.isArray(extracted) ? extracted[0] : extracted;
           const mapped = mapGiveaway(item);
@@ -543,6 +588,7 @@ export async function fetchCategories(): Promise<Category[]> {
     const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100, orderby: 'count', order: 'desc' } : undefined;
       const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
+      ensureApiPayloadValid(data);
       const rawItems = extractList(data, ['categories', 'items', 'data']);
       const mapped = uniqueById(
         rawItems
@@ -589,6 +635,7 @@ export async function fetchTop10(): Promise<TopItem[]> {
           }
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
+      ensureApiPayloadValid(data);
       const rawItems = extractList(data, ['top10', 'items', 'data']);
       const isWpEndpoint = endpoint.includes('/wp-json/');
       const hasTop10Reference = hasDirectTop10Reference(rawItems);
