@@ -9,13 +9,14 @@ export function useGiveaways(params?: SearchParams) {
   return useQuery({
     queryKey: ['giveaways', params],
     queryFn: () => fetchGiveaways(params),
-    staleTime: 60_000,
-    gcTime: 30 * 60_000,
-    refetchOnMount: 'always',
+    staleTime: 2 * 60_000,
+    gcTime: 45 * 60_000,
+    refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: params?.query ? false : BACKGROUND_REFRESH_MS,
-    placeholderData: (previousData) => previousData
+    placeholderData: (previousData) => previousData,
+    networkMode: 'online'
   });
 }
 
@@ -23,13 +24,14 @@ export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
     queryFn: fetchCategories,
-    staleTime: 10 * 60_000,
-    gcTime: 60 * 60_000,
-    refetchOnMount: 'always',
+    staleTime: 20 * 60_000,
+    gcTime: 2 * 60 * 60_000,
+    refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
-    refetchInterval: 30 * 60_000,
-    placeholderData: (previousData) => previousData
+    refetchInterval: 60 * 60_000,
+    placeholderData: (previousData) => previousData,
+    networkMode: 'online'
   });
 }
 
@@ -37,12 +39,13 @@ export function useTop10() {
   return useQuery({
     queryKey: ['top10'],
     queryFn: fetchTop10,
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
-    refetchOnMount: 'always',
+    staleTime: 10 * 60_000,
+    gcTime: 45 * 60_000,
+    refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: BACKGROUND_REFRESH_MS,
-    placeholderData: (previousData) => previousData
+    placeholderData: (previousData) => previousData,
+    networkMode: 'online'
   });
 }

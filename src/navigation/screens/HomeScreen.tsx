@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,16 +12,13 @@ import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
+import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { MainTabParamList, RootStackParamList } from '../types';
 
 type HomeRouteProp = RouteProp<MainTabParamList, 'Home'>;
 type DetailNavigation = NativeStackNavigationProp<RootStackParamList>;
 type TabNavigation = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 
-
-function isOfflineError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
-}
 export function HomeScreen() {
   const route = useRoute<HomeRouteProp>();
   const navigation = useNavigation<DetailNavigation>();
@@ -32,12 +29,12 @@ export function HomeScreen() {
   const categoryTitle = route.params?.categoryTitle;
 
   const giveawaysQuery = useGiveaways({ query, categoryId });
+  useRefetchOnFocus(giveawaysQuery.refetch);
 
   const data = useMemo(() => giveawaysQuery.data ?? [], [giveawaysQuery.data]);
-
   const offline = isOfflineError(giveawaysQuery.error);
 
-  if (giveawaysQuery.isLoading && !Array.isArray(giveawaysQuery.data)) {
+  if (giveawaysQuery.isPending && !Array.isArray(giveawaysQuery.data)) {
     return <LoadingState label="Gewinnspiele werden geladen…" />;
   }
 
@@ -57,14 +54,16 @@ export function HomeScreen() {
           </Pressable>
         </View>
       ) : null}
-      <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} />
-      {giveawaysQuery.isError ? (
-        <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Es werden ggf. zwischengespeicherte Daten angezeigt.</Text>
+      <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" />
+      {giveawaysQuery.isError && data.length > 0 ? (
+        <Text style={styles.inlineWarning}>Offline-Modus: Es werden zuletzt geladene Live-Daten angezeigt.</Text>
       ) : null}
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={giveawaysQuery.isRefetching} onRefresh={giveawaysQuery.refetch} />}
+        refreshControl={
+          <RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />
+        }
         ListEmptyComponent={<EmptyState title="Keine Treffer" message="Passe die Suche oder Filter an." />}
         renderItem={({ item }: { item: Giveaway }) => (
           <GiveawayCard
@@ -73,6 +72,7 @@ export function HomeScreen() {
           />
         )}
       />
+      {giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>
   );
 }
@@ -114,5 +114,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#9b6a00',
     fontSize: 12
+  },
+  fetchingIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 12
   }
 });

@@ -22,9 +22,12 @@ function normalizeEndpoints(value: string[] | undefined, fallback: string[]): st
   return value.map((entry) => entry.trim()).filter(Boolean);
 }
 
+const publicApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+const publicApiTimeoutMs = process.env.EXPO_PUBLIC_API_TIMEOUT_MS;
+
 export const ENV = {
-  apiBaseUrl: withNoTrailingSlash(extras.apiBaseUrl ?? 'https://www.gewinnhai.de'),
-  apiTimeoutMs: extras.apiTimeoutMs ?? 10000,
+  apiBaseUrl: withNoTrailingSlash(publicApiBaseUrl || extras.apiBaseUrl || 'https://www.gewinnhai.de'),
+  apiTimeoutMs: Number(publicApiTimeoutMs || extras.apiTimeoutMs || 10000),
   endpoints: {
     giveaways: normalizeEndpoints(extras.endpoints?.giveaways, ['/api/giveaways', '/wp-json/wp/v2/posts']),
     giveawayDetail: normalizeEndpoints(extras.endpoints?.giveawayDetail, ['/api/giveaways/{idOrSlug}', '/wp-json/wp/v2/posts/{idOrSlug}']),

@@ -1,4 +1,4 @@
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -8,21 +8,19 @@ import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useTop10 } from '../../hooks/useGiveaways';
 import { TopItem } from '../../types/models';
+import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-
-function isOfflineError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
-}
 export function Top10Screen() {
   const top10Query = useTop10();
   const navigation = useNavigation<NavigationProp>();
 
+  useRefetchOnFocus(top10Query.refetch);
   const offline = isOfflineError(top10Query.error);
 
-  if (top10Query.isLoading && !Array.isArray(top10Query.data)) {
+  if (top10Query.isPending && !Array.isArray(top10Query.data)) {
     return <LoadingState label="Top10 wird geladen…" />;
   }
 
@@ -33,11 +31,13 @@ export function Top10Screen() {
 
   return (
     <View style={styles.container}>
-      {top10Query.isError ? <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Ranking kann veraltet sein.</Text> : null}
+      {top10Query.isError && (top10Query.data?.length ?? 0) > 0 ? (
+        <Text style={styles.inlineWarning}>Offline-Modus: Ranking stammt aus zuletzt geladenen Live-Daten.</Text>
+      ) : null}
       <FlatList
         data={top10Query.data ?? []}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={top10Query.isRefetching} onRefresh={top10Query.refetch} />}
+        refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
         ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." />}
         renderItem={({ item }: { item: TopItem }) => (
           <Pressable
@@ -54,6 +54,7 @@ export function Top10Screen() {
           </Pressable>
         )}
       />
+      {top10Query.isFetching && !top10Query.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>
   );
 }
@@ -98,5 +99,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#9b6a00',
     fontSize: 12
+  },
+  fetchingIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 12
   }
 });

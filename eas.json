@@ -8,10 +8,21 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "10000"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "10000"
+      }
     }
   },
   "submit": {
