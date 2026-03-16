@@ -6,20 +6,23 @@ import { SearchParams } from '../types/models';
 export function useGiveaways(params?: SearchParams) {
   return useQuery({
     queryKey: ['giveaways', params],
-    queryFn: () => fetchGiveaways(params)
+    queryFn: () => fetchGiveaways(params),
+    staleTime: 60_000
   });
 }
 
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
-    queryFn: fetchCategories
+    queryFn: fetchCategories,
+    staleTime: 10 * 60_000
   });
 }
 
 export function useTop10() {
   return useQuery({
     queryKey: ['top10'],
-    queryFn: fetchTop10
+    queryFn: fetchTop10,
+    staleTime: 5 * 60_000
   });
 }

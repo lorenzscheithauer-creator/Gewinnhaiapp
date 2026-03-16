@@ -1,13 +1,21 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useCategories } from '../../hooks/useGiveaways';
+import { Category } from '../../types/models';
+import { MainTabParamList } from '../types';
+
+type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Categories'>;
 
 export function CategoriesScreen() {
   const categoriesQuery = useCategories();
+  const navigation = useNavigation<NavigationProp>();
 
-  if (categoriesQuery.isLoading) return <LoadingState />;
+  if (categoriesQuery.isLoading) return <LoadingState label="Kategorien werden geladen…" />;
 
   if (categoriesQuery.isError) {
     return <ErrorState message={(categoriesQuery.error as Error).message} onRetry={() => categoriesQuery.refetch()} />;
@@ -18,11 +26,16 @@ export function CategoriesScreen() {
       <FlatList
         data={categoriesQuery.data ?? []}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
+        refreshControl={<RefreshControl refreshing={categoriesQuery.isRefetching} onRefresh={categoriesQuery.refetch} />}
+        ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." />}
+        renderItem={({ item }: { item: Category }) => (
+          <Pressable
+            onPress={() => navigation.navigate('Home', { categoryId: item.id, categoryTitle: item.title })}
+            style={styles.item}
+          >
             <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>Kategorien werden automatisch aus dem Backend geladen.</Text>
-          </View>
+            <Text style={styles.subtitle}>Tippe, um gefilterte Gewinnspiele anzuzeigen.</Text>
+          </Pressable>
         )}
       />
     </View>

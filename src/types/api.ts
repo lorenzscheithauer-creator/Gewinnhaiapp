@@ -1,17 +1,13 @@
-import { Category, Giveaway, TopItem } from './models';
+export type ApiEnvelope<T> = {
+  data?: T;
+  result?: T;
+  items?: T;
+};
 
-export interface ApiGiveawayResponse {
-  data: Giveaway[];
-}
+export type ApiGiveawayListResponse = ApiEnvelope<unknown[] | { giveaways?: unknown[]; items?: unknown[] }>;
 
-export interface ApiCategoryResponse {
-  data: Category[];
-}
+export type ApiCategoryListResponse = ApiEnvelope<unknown[] | { categories?: unknown[]; items?: unknown[] }>;
 
-export interface ApiTopResponse {
-  data: TopItem[];
-}
+export type ApiTopListResponse = ApiEnvelope<unknown[] | { top10?: unknown[]; items?: unknown[] }>;
 
-export interface ApiGiveawayDetailResponse {
-  data: Giveaway;
-}
+export type ApiGiveawayDetailResponse = ApiEnvelope<unknown>;

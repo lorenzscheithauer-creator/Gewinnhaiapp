@@ -21,9 +21,11 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     padding: 24,
     gap: 12,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   title: {
     fontSize: 18,
