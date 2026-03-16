@@ -75,7 +75,22 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const data = response.data;
+
+    if (typeof data === 'string' && data.toLowerCase().includes('<html')) {
+      return Promise.reject(
+        enrichHttpError(
+          new AxiosError('Unerwartete HTML-Antwort vom Server erhalten.', 'ERR_BAD_RESPONSE', response.config, response.request, {
+            ...response,
+            data
+          })
+        )
+      );
+    }
+
+    return response;
+  },
   async (rawError: AxiosError) => {
     const error = enrichHttpError(rawError);
     const config = error.config as AxiosRequestConfig & { __retryCount?: number };

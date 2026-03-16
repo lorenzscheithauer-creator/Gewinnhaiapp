@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -9,6 +9,7 @@ import { OfflineState } from '../../components/OfflineState';
 import { useTop10 } from '../../hooks/useGiveaways';
 import { TopItem } from '../../types/models';
 import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
+import { openExternalUrl } from '../../utils/links';
 import { RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -21,13 +22,10 @@ export function Top10Screen() {
   const offline = isOfflineError(top10Query.error);
 
   const openExternal = async (url: string) => {
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      Alert.alert('Link nicht verfügbar', 'Dieser Gewinnspiel-Link kann auf dem Gerät nicht geöffnet werden.');
-      return;
+    const result = await openExternalUrl(url);
+    if (!result.ok) {
+      Alert.alert('Link nicht verfügbar', result.reason ?? 'Dieser Gewinnspiel-Link kann auf dem Gerät nicht geöffnet werden.');
     }
-
-    await Linking.openURL(url);
   };
 
   const openDetail = (item: TopItem) => {

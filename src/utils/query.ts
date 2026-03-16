@@ -1,8 +1,13 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useRef } from 'react';
 
+const OFFLINE_MARKERS = ['keine verbindung', 'netzwerkfehler', 'offline', 'network error', 'timeout', 'zeitüberschreitung'];
+
 export function isOfflineError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return OFFLINE_MARKERS.some((marker) => message.includes(marker));
 }
 
 interface RefetchOnFocusOptions {
