@@ -322,11 +322,20 @@ async function resolveWpTagIdBySlug(slug: string): Promise<number | undefined> {
 }
 
 
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function toDetailCandidates(idOrSlug: string): string[] {
   const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '');
   if (!normalized) return [];
 
-  const candidates = [normalized];
+  const candidates = [normalized, safeDecode(normalized)];
   const withoutQuery = normalized.split('?')[0];
   const slugCandidate = withoutQuery.split('/').pop();
   if (slugCandidate && slugCandidate !== normalized) candidates.push(slugCandidate);
@@ -468,6 +477,10 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const filtered = applyLocalFilters(sanitized, normalizedParams);
 
       if (!filtered.length) {
+        if (normalizedParams?.query || normalizedParams?.categoryId || normalizedParams?.categorySlug) {
+          return [];
+        }
+
         throw new Error('Es wurden keine verwertbaren Live-Gewinnspiele geliefert.');
       }
 
