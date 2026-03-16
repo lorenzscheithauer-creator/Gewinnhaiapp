@@ -5,6 +5,8 @@ import { fetchGiveawayDetail } from '../api/giveaways';
 export function useGiveawayDetail(idOrSlug: string) {
   return useQuery({
     queryKey: ['giveaway-detail', idOrSlug],
-    queryFn: () => fetchGiveawayDetail(idOrSlug)
+    queryFn: () => fetchGiveawayDetail(idOrSlug),
+    enabled: Boolean(idOrSlug),
+    staleTime: 60_000
   });
 }

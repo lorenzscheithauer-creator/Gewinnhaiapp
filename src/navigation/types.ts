@@ -4,7 +4,7 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
+  Home: { categoryId?: string; categoryTitle?: string } | undefined;
   Categories: undefined;
   Top10: undefined;
 };

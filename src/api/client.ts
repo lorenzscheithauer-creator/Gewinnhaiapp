@@ -4,5 +4,8 @@ import { ENV } from '../config/env';
 
 export const apiClient = axios.create({
   baseURL: ENV.apiBaseUrl,
-  timeout: ENV.apiTimeoutMs
+  timeout: ENV.apiTimeoutMs,
+  headers: {
+    Accept: 'application/json'
+  }
 });
