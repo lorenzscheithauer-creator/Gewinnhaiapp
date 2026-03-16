@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: true
     }
   }
 });
@@ -52,7 +52,14 @@ function MainTabs() {
 export default function App() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
-      focusManager.setFocused(status === 'active');
+      const isActive = status === 'active';
+      focusManager.setFocused(isActive);
+
+      if (isActive) {
+        queryClient.invalidateQueries({
+          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] !== 'giveaway-detail'
+        });
+      }
     });
 
     return () => subscription.remove();

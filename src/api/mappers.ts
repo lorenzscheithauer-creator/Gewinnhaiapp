@@ -39,6 +39,18 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 function normalizeUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   if (value.startsWith('//')) return `https:${value}`;
@@ -60,7 +72,7 @@ function normalizeDate(value: unknown): string | undefined {
 
 function stripHtml(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return decodeHtmlEntities(raw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function extractWpField(value: unknown): string | undefined {
@@ -68,7 +80,6 @@ function extractWpField(value: unknown): string | undefined {
   const record = asRecord(value);
   return asString(record.rendered);
 }
-
 
 function extractWpCategoryId(item: Record<string, unknown>): string | undefined {
   if (Array.isArray(item.categories) && item.categories.length > 0) {
@@ -93,46 +104,45 @@ function extractWordpressImage(item: Record<string, unknown>): string | undefine
     const firstMedia = asRecord(mediaList[0]);
     const sizes = asRecord(asRecord(firstMedia.media_details).sizes);
     const preferred = asRecord(sizes.medium_large ?? sizes.large ?? sizes.medium ?? sizes.full);
-    return normalizeUrl(
-      firstString(preferred.source_url, firstMedia.source_url, asRecord(firstMedia.guid).rendered)
-    );
+    return normalizeUrl(firstString(preferred.source_url, firstMedia.source_url, asRecord(firstMedia.guid).rendered));
   }
 
   return undefined;
 }
 
+function extractGiveawayIdFromWpLink(value: unknown): string | undefined {
+  const link = asString(value);
+  if (!link) return undefined;
+
+  const clean = link.split('?')[0].replace(/\/+$/, '');
+  const slug = clean.split('/').pop();
+  return slug?.trim() ? slug : undefined;
+}
+
 export function mapGiveaway(raw: unknown): Giveaway {
   const item = asRecord(raw);
-  const wpTitle = extractWpField(item.title);
+  const wpTitle = stripHtml(extractWpField(item.title));
   const wpTeaser = stripHtml(extractWpField(item.excerpt));
   const wpDescription = stripHtml(extractWpField(item.content));
 
   const id =
-    firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url) ??
+    firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url, extractGiveawayIdFromWpLink(item.link)) ??
     firstString(wpTitle, item.name, item.headline, item.url) ??
     'unknown';
-  const slug = firstString(item.slug, item.seo_slug, item.id, item.giveaway_id) ?? id;
+  const slug = firstString(item.slug, item.seo_slug, extractGiveawayIdFromWpLink(item.link), item.id, item.giveaway_id) ?? id;
 
   return {
     id,
     slug,
     title: firstString(wpTitle, item.title, item.name, item.headline) ?? 'Unbenanntes Gewinnspiel',
     teaser:
-      firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description) ??
-      'Keine Kurzbeschreibung verfügbar.',
+      firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description) ?? 'Keine Kurzbeschreibung verfügbar.',
     description: firstString(wpDescription, item.description, item.content, item.long_description, item.body),
     imageUrl: normalizeUrl(
-      firstString(
-        item.imageUrl,
-        item.image_url,
-        item.image,
-        item.thumbnail,
-        item.cover_image,
-        extractWordpressImage(item)
-      )
+      firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractWordpressImage(item))
     ),
     categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item)),
-    expiresAt: normalizeDate(firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt)),
+    expiresAt: normalizeDate(firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt, item.modified_gmt)),
     sourceUrl:
       normalizeUrl(
         firstString(item.sourceUrl, item.source_url, item.url, item.link, item.permalink, item.guid && asRecord(item.guid).rendered)
@@ -149,21 +159,31 @@ export function mapCategory(raw: unknown): Category {
     id: firstString(item.id, item.category_id, item.slug, title) ?? title,
     slug: firstString(item.slug, item.seo_slug, item.id, title) ?? title.toLowerCase().replace(/\s+/g, '-'),
     title,
-    iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon))
+    iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail))
   };
 }
 
 export function mapTopItem(raw: unknown, index: number): TopItem {
   const item = asRecord(raw);
-  const wpTitle = extractWpField(item.title);
+  const wpTitle = stripHtml(extractWpField(item.title));
   const wpTeaser = stripHtml(extractWpField(item.excerpt));
+
+  const giveawayId = firstString(
+    item.giveawayId,
+    item.giveaway_id,
+    asRecord(item.acf).giveaway_id,
+    extractGiveawayIdFromWpLink(item.source_url),
+    extractGiveawayIdFromWpLink(item.link),
+    item.slug,
+    item.id
+  );
 
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
-    rank: asNumber(item.rank ?? item.position ?? item.place) ?? index + 1,
+    rank: asNumber(item.rank ?? item.position ?? item.place ?? asRecord(item.acf).rank) ?? index + 1,
     title: firstString(wpTitle, item.title, item.name, item.headline) ?? `Top-Eintrag ${index + 1}`,
     teaser: firstString(wpTeaser, item.teaser, item.summary, item.description),
-    giveawayId: firstString(item.giveawayId, item.giveaway_id, item.slug, item.id, asRecord(item.acf).giveaway_id)
+    giveawayId
   };
 }
 

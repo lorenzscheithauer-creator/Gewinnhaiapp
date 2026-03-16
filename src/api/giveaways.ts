@@ -12,6 +12,7 @@ const CACHE_TTL = {
   categories: 24 * 60 * 60_000,
   top10: 15 * 60_000,
   giveawayDetail: 30 * 60_000,
+  top10TagId: 24 * 60 * 60_000,
   feedSnapshot: 12 * 60 * 60_000
 };
 
@@ -19,6 +20,7 @@ const CACHE_KEYS = {
   giveaways: 'cache:giveaways',
   categories: 'cache:categories',
   top10: 'cache:top10',
+  top10TagId: 'cache:top10-tag-id',
   feedSnapshot: 'cache:feed-snapshot',
   giveawayDetail: (idOrSlug: string) => `cache:giveaway-detail:${idOrSlug}`
 };
@@ -115,18 +117,12 @@ function buildWpPostParams(params?: SearchParams): Record<string, string | numbe
   const categoryId = params?.categoryId?.trim();
 
   return {
-    per_page: 20,
+    per_page: 25,
     _embed: 1,
+    orderby: 'date',
+    order: 'desc',
     ...(query ? { search: query } : {}),
     ...(categoryId ? { categories: categoryId } : {})
-  };
-}
-
-function buildWpTop10Params(): Record<string, string | number> {
-  return {
-    per_page: 10,
-    _embed: 1,
-    tags: 'top10'
   };
 }
 
@@ -146,6 +142,11 @@ function uniqueById<T extends { id: string }>(items: T[]): T[] {
   });
 
   return Array.from(map.values());
+}
+
+function ensureMeaningfulGiveaways(items: Giveaway[]): Giveaway[] {
+  const filtered = items.filter((item) => item.id !== 'unknown' && item.title !== 'Unbenanntes Gewinnspiel');
+  return filtered.length > 0 ? filtered : items;
 }
 
 async function persistFeedSnapshot(giveaways: Giveaway[]): Promise<void> {
@@ -176,6 +177,28 @@ async function tryEndpoints<T>(
   throw lastError;
 }
 
+async function resolveWpTagIdBySlug(slug: string): Promise<number | undefined> {
+  const cached = await getCache<number>(`${CACHE_KEYS.top10TagId}:${slug}`);
+  if (cached) return cached;
+
+  try {
+    const { data } = await apiClient.get<unknown[]>('/wp-json/wp/v2/tags', {
+      params: { slug, per_page: 1 }
+    });
+
+    const first = Array.isArray(data) ? data[0] : undefined;
+    const id = typeof first === 'object' && first ? Number((first as Record<string, unknown>).id) : NaN;
+    if (Number.isFinite(id)) {
+      await setCache(`${CACHE_KEYS.top10TagId}:${slug}`, id, { ttlMs: CACHE_TTL.top10TagId });
+      return id;
+    }
+  } catch {
+    // handled by caller with fallback params
+  }
+
+  return undefined;
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
   const cacheKey = createCacheKey(CACHE_KEYS.giveaways, params);
 
@@ -184,7 +207,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(params) : buildLegacyGiveawayParams(params);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
-      return uniqueById(mapped);
+      return ensureMeaningfulGiveaways(uniqueById(mapped));
     });
 
     await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
@@ -205,11 +228,17 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
     const detail = await tryEndpoints(ENV.endpoints.giveawayDetail, async (endpoint) => {
       const target = endpoint
         .replace('{idOrSlug}', endpoint.includes('/wp-json/') ? parseWpDetailId(idOrSlug) : encodeURIComponent(idOrSlug))
-        .replace(/\/{2,}/g, '/');
+        .replace(/\/\/{2,}/g, '/');
       const { data } = await apiClient.get<ApiGiveawayDetailResponse>(target);
       const extracted = extractDetail(data);
-      const wpSlugResult = Array.isArray(extracted) ? extracted[0] : extracted;
-      return mapGiveaway(wpSlugResult);
+      const item = Array.isArray(extracted) ? extracted[0] : extracted;
+      const mapped = mapGiveaway(item);
+
+      if (mapped.id === 'unknown') {
+        throw new Error('Ungültige Detaildaten von der API erhalten.');
+      }
+
+      return mapped;
     });
 
     await setCache(cacheKey, detail, { ttlMs: CACHE_TTL.giveawayDetail });
@@ -222,7 +251,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
 export async function fetchCategories(): Promise<Category[]> {
   try {
     const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
-      const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100 } : undefined;
+      const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100, orderby: 'count', order: 'desc' } : undefined;
       const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
       return uniqueById(extractList(data, ['categories', 'items', 'data']).map(mapCategory));
     });
@@ -237,7 +266,18 @@ export async function fetchCategories(): Promise<Category[]> {
 export async function fetchTop10(): Promise<TopItem[]> {
   try {
     const list = await tryEndpoints(ENV.endpoints.top10, async (endpoint) => {
-      const requestParams = endpoint.includes('/wp-json/') ? buildWpTop10Params() : undefined;
+      const requestParams = endpoint.includes('/wp-json/')
+        ? {
+            per_page: 10,
+            _embed: 1,
+            orderby: 'date',
+            order: 'desc',
+            ...(await (async () => {
+              const tagId = await resolveWpTagIdBySlug('top10');
+              return tagId ? { tags: tagId } : { search: 'top10' };
+            })())
+          }
+        : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
       return mapped.sort((left, right) => left.rank - right.rank);

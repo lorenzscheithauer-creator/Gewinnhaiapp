@@ -9,8 +9,9 @@ export function useGiveawayDetail(idOrSlug: string) {
     enabled: Boolean(idOrSlug),
     staleTime: 60_000,
     gcTime: 30 * 60_000,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
     refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData
   });
 }
