@@ -36,7 +36,7 @@ export function CategoriesScreen() {
       ) : null}
       <FlatList
         data={categoriesQuery.data ?? []}
-        keyExtractor={(item, index) => `${item.id}:${item.slug}:${index}`}
+        keyExtractor={(item) => `${item.id}:${item.slug}`}
         refreshControl={
           <RefreshControl
             refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending}

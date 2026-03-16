@@ -29,7 +29,7 @@ export function Top10Screen() {
   };
 
   const openDetail = (item: TopItem) => {
-    const idOrSlug = item.giveawayId || item.giveawaySlug;
+    const idOrSlug = (item.giveawayId || item.giveawaySlug)?.trim();
     if (idOrSlug) {
       navigation.navigate('GiveawayDetail', { idOrSlug });
       return;
@@ -59,7 +59,7 @@ export function Top10Screen() {
       ) : null}
       <FlatList
         data={top10Query.data ?? []}
-        keyExtractor={(item, index) => `${item.id}:${item.rank}:${index}`}
+        keyExtractor={(item) => `${item.id}:${item.rank}`}
         refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
         ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={() => top10Query.refetch()} />}
         renderItem={({ item }: { item: TopItem }) => (

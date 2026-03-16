@@ -65,10 +65,14 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, '>');
 }
 
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
 function normalizeText(value: unknown): string | undefined {
   const text = asString(value);
   if (!text) return undefined;
-  const sanitized = decodeHtmlEntities(text).replace(/\s+/g, ' ').trim();
+  const sanitized = normalizeWhitespace(decodeHtmlEntities(text));
   return sanitized || undefined;
 }
 
@@ -152,8 +156,13 @@ function extractWpCategoryId(item: Record<string, unknown>): string | undefined 
 
   for (const termGroup of terms) {
     if (!Array.isArray(termGroup) || termGroup.length === 0) continue;
-    const firstCategory = asRecord(termGroup[0]);
-    const candidate = firstString(firstCategory.id, firstCategory.slug, firstCategory.term_id);
+
+    const preferredCategory = termGroup
+      .map((entry) => asRecord(entry))
+      .find((entry) => firstString(entry.taxonomy, entry.type) === 'category');
+
+    const category = preferredCategory ?? asRecord(termGroup[0]);
+    const candidate = firstString(category.id, category.slug, category.term_id);
     if (candidate) return candidate;
   }
 
@@ -251,7 +260,10 @@ function fallbackTitle(item: Record<string, unknown>, id: string): string {
 }
 
 function normalizeDescription(value: unknown): string | undefined {
-  return stripHtml(normalizeText(value));
+  const normalized = normalizeText(value);
+  if (!normalized) return undefined;
+
+  return stripHtml(normalized);
 }
 
 export function mapGiveaway(raw: unknown): Giveaway {
