@@ -3,7 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -35,6 +35,11 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 
 
+function parseOnlineState(status: AppStateStatus): boolean {
+  return status === 'active';
+}
+
+
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['gewinnhai://', 'https://gewinnhai.de', 'https://www.gewinnhai.de'],
   config: {
@@ -54,7 +59,7 @@ const linking: LinkingOptions<RootStackParamList> = {
         }
       }
     }
-  },
+  }
 };
 
 const navTheme = {
@@ -68,9 +73,11 @@ const navTheme = {
 function MainTabs() {
   return (
     <Tabs.Navigator
+      initialRouteName="Home"
       screenOptions={{
         headerTitleStyle: { fontWeight: '700' },
-        tabBarLabelStyle: { fontSize: 12 }
+        tabBarLabelStyle: { fontSize: 12 },
+        tabBarHideOnKeyboard: true
       }}
     >
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: 'Start' }} />
@@ -83,15 +90,20 @@ function MainTabs() {
 
 export default function App() {
   useEffect(() => {
+    onlineManager.setEventListener((setOnline) => {
+      const updateOnline = (state: AppStateStatus) => setOnline(state === 'active');
+      const sub = AppState.addEventListener('change', updateOnline);
+      updateOnline(AppState.currentState);
+      return () => sub.remove();
+    });
+
     const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
-      const isActive = status === 'active';
+      const isActive = parseOnlineState(status);
       focusManager.setFocused(isActive);
 
       if (isActive) {
         log('debug', 'App returned to foreground. Refetching active queries.');
-        queryClient.invalidateQueries({
-          refetchType: 'active'
-        });
+        queryClient.invalidateQueries({ refetchType: 'active' });
       }
     });
 
@@ -103,7 +115,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer theme={navTheme} linking={linking}>
+        <NavigationContainer theme={navTheme} linking={linking} fallback={null}>
           <StatusBar style="dark" />
           <Stack.Navigator>
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />

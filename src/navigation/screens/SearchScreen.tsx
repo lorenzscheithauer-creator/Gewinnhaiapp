@@ -50,10 +50,12 @@ export function SearchScreen() {
           onChangeText={setQuery}
           style={styles.search}
           autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
           returnKeyType="search"
         />
         {query.length > 0 ? (
-          <Pressable style={styles.clearButton} onPress={() => setQuery('')}>
+          <Pressable style={styles.clearButton} onPress={() => setQuery('')} accessibilityRole="button" hitSlop={6}>
             <Text style={styles.clearLabel}>Reset</Text>
           </Pressable>
         ) : null}

@@ -53,15 +53,28 @@ export function HomeScreen() {
       {categoryTitle ? (
         <View style={styles.filterInfoContainer}>
           <Text style={styles.filterInfo}>Filter aktiv: {categoryTitle}</Text>
-          <Pressable onPress={() => tabNavigation.setParams({ categoryId: undefined, categorySlug: undefined, categoryTitle: undefined })}>
+          <Pressable
+            onPress={() => tabNavigation.setParams({ categoryId: undefined, categorySlug: undefined, categoryTitle: undefined })}
+            accessibilityRole="button"
+            hitSlop={6}
+          >
             <Text style={styles.filterAction}>Filter entfernen</Text>
           </Pressable>
         </View>
       ) : null}
       <View style={styles.searchRow}>
-        <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" />
+        <TextInput
+          placeholder="Suche Gewinnspiele"
+          value={query}
+          onChangeText={setQuery}
+          style={styles.search}
+          autoCapitalize="none"
+          returnKeyType="search"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
         {query.length > 0 ? (
-          <Pressable style={styles.clearButton} onPress={() => setQuery('')}>
+          <Pressable style={styles.clearButton} onPress={() => setQuery('')} accessibilityRole="button" hitSlop={6}>
             <Text style={styles.clearLabel}>Reset</Text>
           </Pressable>
         ) : null}

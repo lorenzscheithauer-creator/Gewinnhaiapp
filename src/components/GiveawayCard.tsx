@@ -12,7 +12,7 @@ export function GiveawayCard({ item, onPress }: GiveawayCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
   return (
-    <Pressable style={styles.card} onPress={() => onPress(item)}>
+    <Pressable style={styles.card} onPress={() => onPress(item)} accessibilityRole="button" hitSlop={6}>
       {item.imageUrl && !imageFailed ? <Image source={{ uri: item.imageUrl }} style={styles.image} onError={() => setImageFailed(true)} /> : null}
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>

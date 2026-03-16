@@ -45,7 +45,12 @@ export function CategoriesScreen() {
         }
         ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." onRetry={() => categoriesQuery.refetch()} />}
         renderItem={({ item }: { item: Category }) => (
-          <Pressable onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })} style={styles.item}>
+          <Pressable
+            onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })}
+            style={styles.item}
+            accessibilityRole="button"
+            hitSlop={6}
+          >
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.subtitle}>Tippe, um gefilterte Gewinnspiele anzuzeigen.</Text>
           </Pressable>

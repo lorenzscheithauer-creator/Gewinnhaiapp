@@ -11,7 +11,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
       <Text style={styles.title}>Verbindung fehlgeschlagen</Text>
       <Text style={styles.message}>{message ?? 'Bitte überprüfe deine Internetverbindung.'}</Text>
       {onRetry ? (
-        <Pressable onPress={onRetry} style={styles.button}>
+        <Pressable onPress={onRetry} style={styles.button} accessibilityRole="button" hitSlop={8}>
           <Text style={styles.buttonLabel}>Erneut versuchen</Text>
         </Pressable>
       ) : null}
