@@ -127,16 +127,15 @@ export function mapGiveaway(raw: unknown): Giveaway {
 
   const id =
     firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url, extractGiveawayIdFromWpLink(item.link)) ??
-    firstString(wpTitle, item.name, item.headline, item.url) ??
-    'unknown';
-  const slug = firstString(item.slug, item.seo_slug, extractGiveawayIdFromWpLink(item.link), item.id, item.giveaway_id) ?? id;
+    firstString(wpTitle, item.name, item.headline, item.url);
+  const slug = firstString(item.slug, item.seo_slug, extractGiveawayIdFromWpLink(item.link), item.id, item.giveaway_id) ?? id ?? 'unknown';
 
   return {
-    id,
+    id: id ?? 'unknown',
     slug,
-    title: firstString(wpTitle, item.title, item.name, item.headline) ?? 'Unbenanntes Gewinnspiel',
+    title: firstString(wpTitle, item.title, item.name, item.headline) ?? '',
     teaser:
-      firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description) ?? 'Keine Kurzbeschreibung verfügbar.',
+      firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description) ?? '',
     description: firstString(wpDescription, item.description, item.content, item.long_description, item.body),
     imageUrl: normalizeUrl(
       firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractWordpressImage(item))
@@ -153,11 +152,11 @@ export function mapGiveaway(raw: unknown): Giveaway {
 
 export function mapCategory(raw: unknown): Category {
   const item = asRecord(raw);
-  const title = firstString(item.title, item.name, item.label) ?? 'Unbekannte Kategorie';
+  const title = firstString(item.title, item.name, item.label) ?? ''; 
 
   return {
-    id: firstString(item.id, item.category_id, item.slug, title) ?? title,
-    slug: firstString(item.slug, item.seo_slug, item.id, title) ?? title.toLowerCase().replace(/\s+/g, '-'),
+    id: firstString(item.id, item.category_id, item.slug, title) ?? 'unknown',
+    slug: firstString(item.slug, item.seo_slug, item.id, title) ?? (title.toLowerCase().replace(/\s+/g, '-') || 'unknown'),
     title,
     iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail))
   };
@@ -181,7 +180,7 @@ export function mapTopItem(raw: unknown, index: number): TopItem {
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
     rank: asNumber(item.rank ?? item.position ?? item.place ?? asRecord(item.acf).rank) ?? index + 1,
-    title: firstString(wpTitle, item.title, item.name, item.headline) ?? `Top-Eintrag ${index + 1}`,
+    title: firstString(wpTitle, item.title, item.name, item.headline) ?? '',
     teaser: firstString(wpTeaser, item.teaser, item.summary, item.description),
     giveawayId
   };

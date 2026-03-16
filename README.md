@@ -179,3 +179,25 @@ Sobald die echten Website-Dateien/API-Spezifikation vorliegen:
 2. Response-Mapping 1:1 in `src/api/giveaways.ts` finalisieren
 3. Auth/Cookie/Token-Flows ergänzen (falls nötig)
 4. E2E-Tests gegen Staging-Backend ergänzen
+
+---
+
+## 8) Status nach Härtung für erste echte Testversion
+
+### Was jetzt funktioniert
+- Live-Datenanbindung wurde auf robuste Mehrfach-Endpunkte gehärtet (inkl. Retry/Timeout und strikteres Mapping gegen invalide Antworten).
+- Home, Kategorien, Top10 und Detail arbeiten mit echten API-/WordPress-Live-Daten und nutzen nur noch Cache als Offline-Sicherheitsnetz.
+- Wichtige Screens haben konsistente Loading-, Error-, Empty- und Offline-States inkl. Pull-to-refresh und Fokus-Refetch.
+- React-Query- und API-Cache-Verhalten wurde stabilisiert, damit kurze Netzabbrüche besser abgefangen werden.
+- Android/iOS-Build-Konfiguration wurde für erste interne Testbuilds konkretisiert (VersionCode/BuildNumber, EAS-Profile, ENV-Variablen).
+
+### Geänderte Kernbereiche
+- API-Client und Daten-Mapping (`src/api/client.ts`, `src/api/giveaways.ts`, `src/api/mappers.ts`)
+- Query- und Fokus-Refetching (`App.tsx`, `src/hooks/*`, `src/utils/query.ts`)
+- Zustände in Hauptscreens (`src/navigation/screens/*`)
+- Build-/Config-Dateien (`app.json`, `eas.json`, `src/config/env.ts`)
+
+### Für ersten Geräte-Test noch offen
+- Echte Testläufe auf physischen Android-/iOS-Geräten (inkl. langsamer Netze/offline/restore).
+- Finales QA der Top10-Datenquelle auf Backend-Seite (Tag/Endpoint-Strategie je nach CMS-Datenstand).
+- Store-relevante Metadaten finalisieren (Datenschutz-URL, Impressum, finale Assets/Listing-Texte, Signing-Setup).

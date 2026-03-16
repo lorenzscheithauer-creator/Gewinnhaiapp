@@ -1,4 +1,4 @@
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
@@ -8,21 +8,19 @@ import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useCategories } from '../../hooks/useGiveaways';
 import { Category } from '../../types/models';
+import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { MainTabParamList } from '../types';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Categories'>;
 
-
-function isOfflineError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
-}
 export function CategoriesScreen() {
   const categoriesQuery = useCategories();
   const navigation = useNavigation<NavigationProp>();
 
+  useRefetchOnFocus(categoriesQuery.refetch);
   const offline = isOfflineError(categoriesQuery.error);
 
-  if (categoriesQuery.isLoading && !Array.isArray(categoriesQuery.data)) {
+  if (categoriesQuery.isPending && !Array.isArray(categoriesQuery.data)) {
     return <LoadingState label="Kategorien werden geladen…" />;
   }
 
@@ -33,11 +31,18 @@ export function CategoriesScreen() {
 
   return (
     <View style={styles.container}>
-      {categoriesQuery.isError ? <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Kategorien können veraltet sein.</Text> : null}
+      {categoriesQuery.isError && (categoriesQuery.data?.length ?? 0) > 0 ? (
+        <Text style={styles.inlineWarning}>Offline-Modus: Kategorien stammen aus zuletzt geladenen Live-Daten.</Text>
+      ) : null}
       <FlatList
         data={categoriesQuery.data ?? []}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={categoriesQuery.isRefetching} onRefresh={categoriesQuery.refetch} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending}
+            onRefresh={() => categoriesQuery.refetch()}
+          />
+        }
         ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." />}
         renderItem={({ item }: { item: Category }) => (
           <Pressable onPress={() => navigation.navigate('Home', { categoryId: item.id, categoryTitle: item.title })} style={styles.item}>
@@ -46,6 +51,7 @@ export function CategoriesScreen() {
           </Pressable>
         )}
       />
+      {categoriesQuery.isFetching && !categoriesQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>
   );
 }
@@ -76,5 +82,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#9b6a00',
     fontSize: 12
+  },
+  fetchingIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 12
   }
 });

@@ -7,11 +7,12 @@ export function useGiveawayDetail(idOrSlug: string) {
     queryKey: ['giveaway-detail', idOrSlug],
     queryFn: () => fetchGiveawayDetail(idOrSlug),
     enabled: Boolean(idOrSlug),
-    staleTime: 60_000,
-    gcTime: 30 * 60_000,
-    refetchOnMount: 'always',
+    staleTime: 2 * 60_000,
+    gcTime: 45 * 60_000,
+    refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
-    placeholderData: (previousData) => previousData
+    placeholderData: (previousData) => previousData,
+    networkMode: 'online'
   });
 }

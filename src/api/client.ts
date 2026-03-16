@@ -1,6 +1,9 @@
-import axios from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 import { ENV } from '../config/env';
+
+const RETRY_ATTEMPTS = 2;
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
 function tryParseJsonPayload(data: unknown): unknown {
   if (typeof data !== 'string') return data;
@@ -15,6 +18,17 @@ function tryParseJsonPayload(data: unknown): unknown {
   } catch {
     return data;
   }
+}
+
+function canRetry(error: AxiosError): boolean {
+  if (!error.config) return false;
+  if (error.code === 'ECONNABORTED') return true;
+  if (!error.response) return true;
+  return RETRYABLE_STATUS_CODES.has(error.response.status);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const defaultTransformResponse = axios.defaults.transformResponse;
@@ -38,8 +52,19 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error?.response?.status === 404) {
+  async (error: AxiosError) => {
+    const config = error.config as AxiosRequestConfig & { __retryCount?: number };
+
+    if (config && canRetry(error)) {
+      config.__retryCount = config.__retryCount ?? 0;
+      if (config.__retryCount < RETRY_ATTEMPTS) {
+        config.__retryCount += 1;
+        await sleep(300 * config.__retryCount);
+        return apiClient.request(config);
+      }
+    }
+
+    if (error.response?.status === 404) {
       error.message = 'Eintrag nicht gefunden.';
     }
 

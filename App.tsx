@@ -16,7 +16,12 @@ import { MainTabParamList, RootStackParamList } from './src/navigation/types';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        const message = error instanceof Error ? error.message.toLowerCase() : '';
+        if (message.includes('nicht gefunden')) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
       refetchOnReconnect: true,
       refetchOnWindowFocus: true
     }
@@ -61,6 +66,8 @@ export default function App() {
         });
       }
     });
+
+    queryClient.invalidateQueries();
 
     return () => subscription.remove();
   }, []);

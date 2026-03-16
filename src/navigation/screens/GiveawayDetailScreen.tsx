@@ -1,10 +1,12 @@
 import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useGiveawayDetail } from '../../hooks/useGiveawayDetail';
+import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
 import { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GiveawayDetail'>;
@@ -15,12 +17,9 @@ function formatExpiresAt(value: string): string {
   return date.toLocaleDateString('de-DE');
 }
 
-function isOfflineError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes('keine verbindung');
-}
-
 export function GiveawayDetailScreen({ route }: Props) {
   const detailQuery = useGiveawayDetail(route.params.idOrSlug);
+  useRefetchOnFocus(detailQuery.refetch, { minIntervalMs: 15_000 });
   const offline = isOfflineError(detailQuery.error);
 
   const openSource = async (url: string) => {
@@ -30,7 +29,7 @@ export function GiveawayDetailScreen({ route }: Props) {
     }
   };
 
-  if (detailQuery.isLoading && !detailQuery.data) {
+  if (detailQuery.isPending && !detailQuery.data) {
     return <LoadingState label="Gewinnspiel wird geladen…" />;
   }
 
@@ -42,15 +41,15 @@ export function GiveawayDetailScreen({ route }: Props) {
   const item = detailQuery.data;
 
   if (!item) {
-    return <ErrorState message="Für dieses Gewinnspiel sind aktuell keine Details verfügbar." onRetry={() => detailQuery.refetch()} />;
+    return <EmptyState title="Keine Details verfügbar" message="Für dieses Gewinnspiel sind aktuell keine Live-Details verfügbar." />;
   }
 
   return (
     <ScrollView
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={detailQuery.isRefetching} onRefresh={detailQuery.refetch} />}
+      refreshControl={<RefreshControl refreshing={detailQuery.isRefetching && !detailQuery.isPending} onRefresh={() => detailQuery.refetch()} />}
     >
-      {detailQuery.isError ? <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Details können veraltet sein.</Text> : null}
+      {detailQuery.isError ? <Text style={styles.inlineWarning}>Offline-Modus: Details können veraltet sein.</Text> : null}
       {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.image} /> : null}
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.teaser}>{item.teaser}</Text>
@@ -59,7 +58,7 @@ export function GiveawayDetailScreen({ route }: Props) {
           <Text style={styles.metaText}>Läuft bis: {formatExpiresAt(item.expiresAt)}</Text>
         </View>
       ) : null}
-      {item.description ? <Text style={styles.body}>{item.description}</Text> : null}
+      {item.description ? <Text style={styles.body}>{item.description}</Text> : <EmptyState title="Keine Beschreibung" message="Für dieses Gewinnspiel wurde keine Detailbeschreibung geliefert." />}
       <Pressable style={styles.button} onPress={() => openSource(item.sourceUrl)}>
         <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
       </Pressable>

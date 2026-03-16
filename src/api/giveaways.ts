@@ -144,9 +144,21 @@ function uniqueById<T extends { id: string }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
-function ensureMeaningfulGiveaways(items: Giveaway[]): Giveaway[] {
-  const filtered = items.filter((item) => item.id !== 'unknown' && item.title !== 'Unbenanntes Gewinnspiel');
-  return filtered.length > 0 ? filtered : items;
+
+function hasMeaningfulText(value: string | undefined): boolean {
+  return Boolean(value && value.trim().length >= 3);
+}
+
+function sanitizeGiveawayList(items: Giveaway[]): Giveaway[] {
+  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title));
+}
+
+function sanitizeCategoryList(items: Category[]): Category[] {
+  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title));
+}
+
+function sanitizeTop10(items: TopItem[]): TopItem[] {
+  return items.filter((item) => hasMeaningfulText(item.title)).sort((left, right) => left.rank - right.rank).slice(0, 10);
 }
 
 async function persistFeedSnapshot(giveaways: Giveaway[]): Promise<void> {
@@ -207,7 +219,13 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(params) : buildLegacyGiveawayParams(params);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
-      return ensureMeaningfulGiveaways(uniqueById(mapped));
+      const sanitized = sanitizeGiveawayList(uniqueById(mapped));
+
+      if (!sanitized.length && mapped.length) {
+        throw new Error('Es wurden keine verwertbaren Live-Gewinnspiele geliefert.');
+      }
+
+      return sanitized;
     });
 
     await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
@@ -234,7 +252,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
       const item = Array.isArray(extracted) ? extracted[0] : extracted;
       const mapped = mapGiveaway(item);
 
-      if (mapped.id === 'unknown') {
+      if (mapped.id === 'unknown' || !hasMeaningfulText(mapped.title)) {
         throw new Error('Ungültige Detaildaten von der API erhalten.');
       }
 
@@ -253,7 +271,14 @@ export async function fetchCategories(): Promise<Category[]> {
     const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100, orderby: 'count', order: 'desc' } : undefined;
       const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
-      return uniqueById(extractList(data, ['categories', 'items', 'data']).map(mapCategory));
+      const mapped = uniqueById(extractList(data, ['categories', 'items', 'data']).map(mapCategory));
+      const sanitized = sanitizeCategoryList(mapped);
+
+      if (!sanitized.length && mapped.length) {
+        throw new Error('Es wurden keine verwertbaren Live-Kategorien geliefert.');
+      }
+
+      return sanitized;
     });
 
     await setCache(CACHE_KEYS.categories, list, { ttlMs: CACHE_TTL.categories });
@@ -280,7 +305,13 @@ export async function fetchTop10(): Promise<TopItem[]> {
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
-      return mapped.sort((left, right) => left.rank - right.rank);
+      const sanitized = sanitizeTop10(mapped);
+
+      if (!sanitized.length && mapped.length) {
+        throw new Error('Es wurden keine verwertbaren Live-Top10-Daten geliefert.');
+      }
+
+      return sanitized;
     });
 
     await setCache(CACHE_KEYS.top10, list, { ttlMs: CACHE_TTL.top10 });

@@ -16,21 +16,27 @@
       "**/*"
     ],
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gewinnhai.mobile"
+      "bundleIdentifier": "com.gewinnhai.mobile",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.gewinnhai.mobile"
+      "package": "com.gewinnhai.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "extra": {
       "apiBaseUrl": "https://www.gewinnhai.de",
