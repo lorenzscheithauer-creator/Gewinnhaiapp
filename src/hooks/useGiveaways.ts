@@ -12,15 +12,17 @@ function normalizeSearchParams(params?: SearchParams): SearchParams | undefined 
 
   const query = params.query?.trim();
   const categoryId = params.categoryId?.trim();
+  const categorySlug = params.categorySlug?.trim().toLowerCase();
 
   return {
     query: query && query.length >= 2 ? query : undefined,
-    categoryId: categoryId || undefined
+    categoryId: categoryId || undefined,
+    categorySlug: categorySlug || undefined
   };
 }
 
 export function useGiveaways(params?: SearchParams) {
-  const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.query]);
+  const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
 
   return useQuery({
     queryKey: ['giveaways', normalizedParams],

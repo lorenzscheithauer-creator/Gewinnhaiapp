@@ -300,6 +300,8 @@ export function mapGiveaway(raw: unknown): Giveaway {
       )
     ),
     categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item)),
+    categorySlug: firstString(item.categorySlug, item.category_slug, asRecord(item.category).slug, asRecord(item.term).slug),
+    categoryLabel: normalizeText(firstString(item.categoryName, item.category_name, asRecord(item.category).name, asRecord(item.term).name)),
     expiresAt: normalizeDate(
       firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt, item.modified_gmt, extractAfcValue(item, 'expires_at'))
     ),

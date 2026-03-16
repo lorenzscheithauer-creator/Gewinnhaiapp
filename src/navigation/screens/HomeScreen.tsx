@@ -29,8 +29,9 @@ export function HomeScreen() {
 
   const categoryId = route.params?.categoryId;
   const categoryTitle = route.params?.categoryTitle;
+  const categorySlug = route.params?.categorySlug;
 
-  const giveawaysQuery = useGiveaways({ query: debouncedQuery, categoryId });
+  const giveawaysQuery = useGiveaways({ query: debouncedQuery, categoryId, categorySlug });
   useRefetchOnFocus(giveawaysQuery.refetch);
 
   const data = useMemo(() => giveawaysQuery.data ?? [], [giveawaysQuery.data]);
@@ -51,7 +52,7 @@ export function HomeScreen() {
       {categoryTitle ? (
         <View style={styles.filterInfoContainer}>
           <Text style={styles.filterInfo}>Filter aktiv: {categoryTitle}</Text>
-          <Pressable onPress={() => tabNavigation.setParams({ categoryId: undefined, categoryTitle: undefined })}>
+          <Pressable onPress={() => tabNavigation.setParams({ categoryId: undefined, categorySlug: undefined, categoryTitle: undefined })}>
             <Text style={styles.filterAction}>Filter entfernen</Text>
           </Pressable>
         </View>
