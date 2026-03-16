@@ -57,29 +57,68 @@ function normalizeDate(value: unknown): string | undefined {
   return dateString;
 }
 
+function stripHtml(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function extractWpField(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  const record = asRecord(value);
+  return asString(record.rendered);
+}
+
+function extractWordpressImage(item: Record<string, unknown>): string | undefined {
+  const embedded = asRecord(item._embedded);
+  const mediaList = embedded['wp:featuredmedia'];
+  if (Array.isArray(mediaList) && mediaList.length > 0) {
+    const firstMedia = asRecord(mediaList[0]);
+    const sizes = asRecord(asRecord(firstMedia.media_details).sizes);
+    const preferred = asRecord(sizes.medium_large ?? sizes.large ?? sizes.medium ?? sizes.full);
+    return normalizeUrl(
+      firstString(preferred.source_url, firstMedia.source_url, asRecord(firstMedia.guid).rendered)
+    );
+  }
+
+  return undefined;
+}
+
 export function mapGiveaway(raw: unknown): Giveaway {
   const item = asRecord(raw);
+  const wpTitle = extractWpField(item.title);
+  const wpTeaser = stripHtml(extractWpField(item.excerpt));
+  const wpDescription = stripHtml(extractWpField(item.content));
 
   const id =
     firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url) ??
-    firstString(item.title, item.name, item.headline, item.url) ??
+    firstString(wpTitle, item.name, item.headline, item.url) ??
     'unknown';
   const slug = firstString(item.slug, item.seo_slug, item.id, item.giveaway_id) ?? id;
 
   return {
     id,
     slug,
-    title: firstString(item.title, item.name, item.headline) ?? 'Unbenanntes Gewinnspiel',
+    title: firstString(wpTitle, item.title, item.name, item.headline) ?? 'Unbenanntes Gewinnspiel',
     teaser:
-      firstString(item.teaser, item.summary, item.short_description, item.description) ??
+      firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description) ??
       'Keine Kurzbeschreibung verfügbar.',
-    description: firstString(item.description, item.content, item.long_description, item.body),
-    imageUrl: normalizeUrl(firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image)),
+    description: firstString(wpDescription, item.description, item.content, item.long_description, item.body),
+    imageUrl: normalizeUrl(
+      firstString(
+        item.imageUrl,
+        item.image_url,
+        item.image,
+        item.thumbnail,
+        item.cover_image,
+        extractWordpressImage(item)
+      )
+    ),
     categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category),
-    expiresAt: normalizeDate(firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date)),
+    expiresAt: normalizeDate(firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt)),
     sourceUrl:
-      normalizeUrl(firstString(item.sourceUrl, item.source_url, item.url, item.link, item.permalink)) ??
-      'https://www.gewinnhai.de',
+      normalizeUrl(
+        firstString(item.sourceUrl, item.source_url, item.url, item.link, item.permalink, item.guid && asRecord(item.guid).rendered)
+      ) ?? 'https://www.gewinnhai.de',
     featured: Boolean(item.featured ?? item.is_featured)
   };
 }
@@ -98,12 +137,14 @@ export function mapCategory(raw: unknown): Category {
 
 export function mapTopItem(raw: unknown, index: number): TopItem {
   const item = asRecord(raw);
+  const wpTitle = extractWpField(item.title);
+  const wpTeaser = stripHtml(extractWpField(item.excerpt));
 
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
     rank: asNumber(item.rank ?? item.position ?? item.place) ?? index + 1,
-    title: firstString(item.title, item.name, item.headline) ?? `Top-Eintrag ${index + 1}`,
-    teaser: firstString(item.teaser, item.summary, item.description),
+    title: firstString(wpTitle, item.title, item.name, item.headline) ?? `Top-Eintrag ${index + 1}`,
+    teaser: firstString(wpTeaser, item.teaser, item.summary, item.description),
     giveawayId: firstString(item.giveawayId, item.giveaway_id, item.slug, item.id)
   };
 }

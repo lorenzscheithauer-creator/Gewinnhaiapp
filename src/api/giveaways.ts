@@ -5,6 +5,7 @@ import { ApiCategoryListResponse, ApiGiveawayDetailResponse, ApiGiveawayListResp
 import { Category, Giveaway, SearchParams, TopItem } from '../types/models';
 import { getCache, setCache } from '../utils/cache';
 import { extractDetail, extractList, mapCategory, mapGiveaway, mapTopItem } from './mappers';
+import { ENV } from '../config/env';
 
 const CACHE_KEYS = {
   giveaways: 'cache:giveaways',
@@ -69,7 +70,11 @@ async function fallbackCache<T>(cacheKey: string, err: unknown): Promise<T> {
   throw new Error(getErrorMessage(err));
 }
 
-function buildGiveawayParams(params?: SearchParams): Record<string, string> | undefined {
+function normalizeEndpoint(endpoint: string): string {
+  return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+}
+
+function buildLegacyGiveawayParams(params?: SearchParams): Record<string, string> | undefined {
   if (!params) return undefined;
 
   const query = params.query?.trim();
@@ -92,12 +97,61 @@ function buildGiveawayParams(params?: SearchParams): Record<string, string> | un
   };
 }
 
+function buildWpPostParams(params?: SearchParams): Record<string, string | number> {
+  const query = params?.query?.trim();
+  const categoryId = params?.categoryId?.trim();
+
+  return {
+    per_page: 20,
+    _embed: 1,
+    ...(query ? { search: query } : {}),
+    ...(categoryId ? { categories: categoryId } : {})
+  };
+}
+
+function buildWpTop10Params(): Record<string, string | number> {
+  return {
+    per_page: 10,
+    _embed: 1,
+    tags: 'top10'
+  };
+}
+
+function parseWpDetailId(idOrSlug: string): string {
+  const normalized = idOrSlug.trim();
+  if (/^\d+$/.test(normalized)) return normalized;
+  return `?slug=${encodeURIComponent(normalized)}&_embed=1`;
+}
+
+async function tryEndpoints<T>(
+  endpoints: string[],
+  runner: (endpoint: string, index: number) => Promise<T>
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let index = 0; index < endpoints.length; index += 1) {
+    const endpoint = normalizeEndpoint(endpoints[index]);
+
+    try {
+      return await runner(endpoint, index);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
   const cacheKey = createCacheKey(CACHE_KEYS.giveaways, params);
 
   try {
-    const { data } = await apiClient.get<ApiGiveawayListResponse>('/giveaways', { params: buildGiveawayParams(params) });
-    const list = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
+    const list = await tryEndpoints(ENV.endpoints.giveaways, async (endpoint) => {
+      const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(params) : buildLegacyGiveawayParams(params);
+      const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
+      return extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
+    });
+
     await setCache(cacheKey, list);
     return list;
   } catch (err) {
@@ -109,8 +163,16 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
   const cacheKey = CACHE_KEYS.giveawayDetail(idOrSlug);
 
   try {
-    const { data } = await apiClient.get<ApiGiveawayDetailResponse>(`/giveaways/${idOrSlug}`);
-    const detail = mapGiveaway(extractDetail(data));
+    const detail = await tryEndpoints(ENV.endpoints.giveawayDetail, async (endpoint) => {
+      const target = endpoint
+        .replace('{idOrSlug}', endpoint.includes('/wp-json/') ? parseWpDetailId(idOrSlug) : encodeURIComponent(idOrSlug))
+        .replace(/\/{2,}/g, '/');
+      const { data } = await apiClient.get<ApiGiveawayDetailResponse>(target);
+      const extracted = extractDetail(data);
+      const wpSlugResult = Array.isArray(extracted) ? extracted[0] : extracted;
+      return mapGiveaway(wpSlugResult);
+    });
+
     await setCache(cacheKey, detail);
     return detail;
   } catch (err) {
@@ -120,8 +182,12 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
 
 export async function fetchCategories(): Promise<Category[]> {
   try {
-    const { data } = await apiClient.get<ApiCategoryListResponse>('/categories');
-    const list = extractList(data, ['categories', 'items', 'data']).map(mapCategory);
+    const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
+      const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100 } : undefined;
+      const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
+      return extractList(data, ['categories', 'items', 'data']).map(mapCategory);
+    });
+
     await setCache(CACHE_KEYS.categories, list);
     return list;
   } catch (err) {
@@ -131,8 +197,12 @@ export async function fetchCategories(): Promise<Category[]> {
 
 export async function fetchTop10(): Promise<TopItem[]> {
   try {
-    const { data } = await apiClient.get<ApiTopListResponse>('/top10');
-    const list = extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
+    const list = await tryEndpoints(ENV.endpoints.top10, async (endpoint) => {
+      const requestParams = endpoint.includes('/wp-json/') ? buildWpTop10Params() : undefined;
+      const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
+      return extractList(data, ['top10', 'items', 'data']).map((item, index) => mapTopItem(item, index));
+    });
+
     await setCache(CACHE_KEYS.top10, list);
     return list;
   } catch (err) {
