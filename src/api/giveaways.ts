@@ -349,6 +349,24 @@ function filterGiveawaysByCategory(items: Giveaway[], params?: SearchParams): Gi
   });
 }
 
+function filterGiveawaysByQuery(items: Giveaway[], params?: SearchParams): Giveaway[] {
+  const query = params?.query?.trim().toLowerCase();
+  if (!query || query.length < 2) return items;
+
+  return items.filter((item) => {
+    const candidate = [item.title, item.teaser, item.description, item.categoryLabel]
+      .map((value) => value?.toLowerCase().trim())
+      .filter(Boolean)
+      .join(' ');
+
+    return candidate.includes(query);
+  });
+}
+
+function applyLocalFilters(items: Giveaway[], params?: SearchParams): Giveaway[] {
+  return filterGiveawaysByQuery(filterGiveawaysByCategory(items, params), params);
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
   const normalizedParams = normalizeSearchParams(params);
   const cacheKey = createCacheKey(CACHE_KEYS.giveaways, normalizedParams);
@@ -359,7 +377,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
       const sanitized = sanitizeGiveawayList(uniqueById(mapped));
-      const filtered = filterGiveawaysByCategory(sanitized, normalizedParams);
+      const filtered = applyLocalFilters(sanitized, normalizedParams);
 
       if (!filtered.length) {
         throw new Error('Es wurden keine verwertbaren Live-Gewinnspiele geliefert.');
