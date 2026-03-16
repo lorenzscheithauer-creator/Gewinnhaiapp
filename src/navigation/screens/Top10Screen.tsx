@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -9,9 +9,8 @@ import { OfflineState } from '../../components/OfflineState';
 import { useTop10 } from '../../hooks/useGiveaways';
 import { TopItem } from '../../types/models';
 import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
-import { openExternalUrl } from '../../utils/links';
 import { RootStackParamList } from '../types';
-import { resolveGiveawayNavigationId } from '../../utils/giveaway';
+import { openGiveawaySelection } from '../../utils/giveawayAction';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,27 +21,6 @@ export function Top10Screen() {
   useRefetchOnFocus(top10Query.refetch);
   const offline = isOfflineError(top10Query.error);
 
-  const openExternal = async (url: string) => {
-    const result = await openExternalUrl(url);
-    if (!result.ok) {
-      Alert.alert('Link nicht verfügbar', result.reason ?? 'Dieser Gewinnspiel-Link kann auf dem Gerät nicht geöffnet werden.');
-    }
-  };
-
-  const openDetail = (item: TopItem) => {
-    const idOrSlug = resolveGiveawayNavigationId(item);
-    if (idOrSlug) {
-      navigation.navigate('GiveawayDetail', { idOrSlug });
-      return;
-    }
-
-    if (item.sourceUrl) {
-      void openExternal(item.sourceUrl);
-      return;
-    }
-
-    Alert.alert('Kein Detail verfügbar', 'Für diesen Eintrag ist aktuell weder Detailseite noch Link vorhanden.');
-  };
 
   if (top10Query.isPending && !Array.isArray(top10Query.data)) {
     return <LoadingState label="Top10 wird geladen…" />;
@@ -64,7 +42,15 @@ export function Top10Screen() {
         refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
         ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={() => top10Query.refetch()} />}
         renderItem={({ item }: { item: TopItem }) => (
-          <Pressable onPress={() => openDetail(item)} style={styles.item}>
+          <Pressable
+            onPress={() =>
+              openGiveawaySelection(item, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }), {
+                missingDetailTitle: 'Kein Detail verfügbar',
+                missingDetailMessage: 'Für diesen Eintrag ist aktuell weder Detailseite noch Link vorhanden.'
+              })
+            }
+            style={styles.item}
+          >
 
             <Text style={styles.rank}>#{item.rank}</Text>
             <View style={styles.textContainer}>

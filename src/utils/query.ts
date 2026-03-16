@@ -11,7 +11,16 @@ export function isOfflineError(error: unknown): boolean {
 }
 
 interface RefetchOnFocusOptions {
+  enabled?: boolean;
   minIntervalMs?: number;
+}
+
+async function refetchSafely(refetch: () => Promise<unknown>): Promise<void> {
+  try {
+    await refetch();
+  } catch {
+    // Query cache already keeps the error state.
+  }
 }
 
 export function useRefetchOnFocus(refetch: () => Promise<unknown>, options?: RefetchOnFocusOptions): void {
@@ -19,6 +28,10 @@ export function useRefetchOnFocus(refetch: () => Promise<unknown>, options?: Ref
 
   useFocusEffect(
     useCallback(() => {
+      if (options?.enabled === false) {
+        return;
+      }
+
       const now = Date.now();
       const minIntervalMs = options?.minIntervalMs ?? 20_000;
 
@@ -27,7 +40,7 @@ export function useRefetchOnFocus(refetch: () => Promise<unknown>, options?: Ref
       }
 
       lastRefetchAtRef.current = now;
-      void refetch();
-    }, [options?.minIntervalMs, refetch])
+      void refetchSafely(refetch);
+    }, [options?.enabled, options?.minIntervalMs, refetch])
   );
 }

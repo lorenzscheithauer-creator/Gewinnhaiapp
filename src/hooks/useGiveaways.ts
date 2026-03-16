@@ -4,22 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { giveawaysRepository } from '../data/giveawaysRepository';
 import { ENV } from '../config/env';
 import { SearchParams } from '../types/models';
+import { normalizeSearchParams } from '../utils/searchParams';
 
 const BACKGROUND_REFRESH_MS = 5 * 60_000;
-
-function normalizeSearchParams(params?: SearchParams): SearchParams | undefined {
-  if (!params) return undefined;
-
-  const query = params.query?.trim();
-  const categoryId = params.categoryId?.trim();
-  const categorySlug = params.categorySlug?.trim().toLowerCase();
-
-  return {
-    query: query && query.length >= 2 ? query : undefined,
-    categoryId: categoryId || undefined,
-    categorySlug: categorySlug || undefined
-  };
-}
 
 interface UseGiveawaysOptions {
   enabled?: boolean;
