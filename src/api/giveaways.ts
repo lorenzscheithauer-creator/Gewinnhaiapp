@@ -153,6 +153,21 @@ function sanitizeGiveawayList(items: Giveaway[]): Giveaway[] {
   return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title)).slice(0, 150);
 }
 
+function mergeGiveawayWithFallback(primary: Giveaway, fallback?: Giveaway | null): Giveaway {
+  if (!fallback) return primary;
+
+  return {
+    ...fallback,
+    ...primary,
+    teaser: hasMeaningfulText(primary.teaser) ? primary.teaser : fallback.teaser,
+    description: hasMeaningfulText(primary.description) ? primary.description : fallback.description,
+    imageUrl: primary.imageUrl ?? fallback.imageUrl,
+    sourceUrl: primary.sourceUrl ?? fallback.sourceUrl,
+    categoryId: primary.categoryId ?? fallback.categoryId,
+    expiresAt: primary.expiresAt ?? fallback.expiresAt
+  };
+}
+
 function sanitizeCategoryList(items: Category[]): Category[] {
   return items
     .filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title))
@@ -285,6 +300,10 @@ function fallbackTop10FromGiveaways(giveaways: Giveaway[]): TopItem[] {
   }));
 }
 
+function hasDirectTop10Reference(items: unknown[]): boolean {
+  return items.some((item) => includesTop10Hint((item && typeof item === 'object' ? item : {}) as Record<string, unknown>));
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
   const cacheKey = createCacheKey(CACHE_KEYS.giveaways, params);
 
@@ -331,12 +350,14 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
           const extracted = extractDetail(data);
           const item = Array.isArray(extracted) ? extracted[0] : extracted;
           const mapped = mapGiveaway(item);
+          const feedFallback = await resolveDetailFromFeed(candidate);
+          const enriched = mergeGiveawayWithFallback(mapped, feedFallback);
 
-          if (mapped.id === 'unknown' || !hasMeaningfulText(mapped.title)) {
+          if (enriched.id === 'unknown' || !hasMeaningfulText(enriched.title)) {
             throw new Error('Ungültige Detaildaten von der API erhalten.');
           }
 
-          return mapped;
+          return enriched;
         } catch (error) {
           lastError = error;
         }
@@ -417,11 +438,13 @@ export async function fetchTop10(): Promise<TopItem[]> {
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
       const rawItems = extractList(data, ['top10', 'items', 'data']);
+      const isWpEndpoint = endpoint.includes('/wp-json/');
+      const hasTop10Reference = hasDirectTop10Reference(rawItems);
       const mapped = rawItems
         .filter((item) => {
-          if (!endpoint.includes('/wp-json/')) return true;
+          if (!isWpEndpoint) return true;
           const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
-          return includesTop10Hint(record) || rawItems.length <= 10;
+          return includesTop10Hint(record) || !hasTop10Reference;
         })
         .map((item, index) => {
           const parsed = mapTopItem(item, index);

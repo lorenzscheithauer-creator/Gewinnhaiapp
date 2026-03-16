@@ -90,14 +90,25 @@ export function normalizeUrl(value: string | undefined): string | undefined {
   if (withoutQuotes.startsWith('/')) return `https://www.gewinnhai.de${withoutQuotes}`;
 
   if (/^https?:\/\//i.test(withoutQuotes)) {
-    return withoutQuotes;
+    return withoutQuotes.replace(/\s/g, '').replace(/#.*$/, '');
   }
 
   if (/^www\./i.test(withoutQuotes)) {
-    return `https://${withoutQuotes}`;
+    return `https://${withoutQuotes.replace(/\s/g, '')}`;
   }
 
-  return `https://${withoutQuotes}`;
+  return `https://${withoutQuotes.replace(/\s/g, '')}`;
+}
+
+function isGewinnhaiUrl(value: string | undefined): boolean {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return /(^|\.)gewinnhai\.de$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function normalizeDate(value: unknown): string | undefined {
@@ -189,14 +200,10 @@ function extractYoastImage(value: unknown): string | undefined {
 }
 
 function extractSourceUrl(item: Record<string, unknown>, acf: Record<string, unknown>): string | undefined {
-  return normalizeUrl(
+  const externalCandidate = normalizeUrl(
     firstString(
       item.sourceUrl,
       item.source_url,
-      item.url,
-      item.link,
-      item.permalink,
-      item.guid && asRecord(item.guid).rendered,
       extractUrlFromObject(item.source),
       extractUrlFromObject(item.external_link),
       extractAfcValue(item, 'source_url'),
@@ -205,6 +212,15 @@ function extractSourceUrl(item: Record<string, unknown>, acf: Record<string, unk
       acf.external_url
     )
   );
+
+  if (externalCandidate) return externalCandidate;
+
+  const fallbackCandidate = normalizeUrl(firstString(item.url, item.link, item.permalink, item.guid && asRecord(item.guid).rendered));
+  if (fallbackCandidate && !isGewinnhaiUrl(fallbackCandidate)) {
+    return fallbackCandidate;
+  }
+
+  return fallbackCandidate;
 }
 
 function toSlug(value: string | undefined): string | undefined {
