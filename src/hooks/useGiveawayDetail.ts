@@ -9,6 +9,8 @@ export function useGiveawayDetail(idOrSlug: string) {
     enabled: Boolean(idOrSlug),
     staleTime: 60_000,
     gcTime: 30 * 60_000,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
     placeholderData: (previousData) => previousData
   });
 }
