@@ -30,9 +30,11 @@ export function HomeScreen() {
 
   const data = useMemo(() => giveawaysQuery.data ?? [], [giveawaysQuery.data]);
 
-  if (giveawaysQuery.isLoading) return <LoadingState label="Gewinnspiele werden geladen…" />;
+  if (giveawaysQuery.isLoading && !Array.isArray(giveawaysQuery.data)) {
+    return <LoadingState label="Gewinnspiele werden geladen…" />;
+  }
 
-  if (giveawaysQuery.isError) {
+  if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data)) {
     return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={() => giveawaysQuery.refetch()} />;
   }
 
@@ -47,12 +49,10 @@ export function HomeScreen() {
           </Pressable>
         </View>
       ) : null}
-      <TextInput
-        placeholder="Suche Gewinnspiele"
-        value={query}
-        onChangeText={setQuery}
-        style={styles.search}
-      />
+      <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} />
+      {giveawaysQuery.isError ? (
+        <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Es werden ggf. zwischengespeicherte Daten angezeigt.</Text>
+      ) : null}
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
@@ -61,7 +61,7 @@ export function HomeScreen() {
         renderItem={({ item }: { item: Giveaway }) => (
           <GiveawayCard
             item={item}
-            onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: selected.slug ?? selected.id })}
+            onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: selected.slug || selected.id })}
           />
         )}
       />
@@ -101,5 +101,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12
+  },
+  inlineWarning: {
+    marginBottom: 10,
+    color: '#9b6a00',
+    fontSize: 12
   }
 });

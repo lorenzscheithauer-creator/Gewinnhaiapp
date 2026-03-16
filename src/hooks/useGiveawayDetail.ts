@@ -7,6 +7,8 @@ export function useGiveawayDetail(idOrSlug: string) {
     queryKey: ['giveaway-detail', idOrSlug],
     queryFn: () => fetchGiveawayDetail(idOrSlug),
     enabled: Boolean(idOrSlug),
-    staleTime: 60_000
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
+    placeholderData: (previousData) => previousData
   });
 }
