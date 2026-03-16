@@ -1,4 +1,4 @@
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ErrorState } from '../../components/ErrorState';
@@ -7,6 +7,12 @@ import { useGiveawayDetail } from '../../hooks/useGiveawayDetail';
 import { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GiveawayDetail'>;
+
+function formatExpiresAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('de-DE');
+}
 
 export function GiveawayDetailScreen({ route }: Props) {
   const detailQuery = useGiveawayDetail(route.params.idOrSlug);
@@ -18,22 +24,32 @@ export function GiveawayDetailScreen({ route }: Props) {
     }
   };
 
-  if (detailQuery.isLoading) return <LoadingState label="Gewinnspiel wird geladen…" />;
+  if (detailQuery.isLoading && !detailQuery.data) {
+    return <LoadingState label="Gewinnspiel wird geladen…" />;
+  }
 
-  if (detailQuery.isError || !detailQuery.data) {
+  if (detailQuery.isError && !detailQuery.data) {
     return <ErrorState message={(detailQuery.error as Error)?.message} onRetry={() => detailQuery.refetch()} />;
   }
 
   const item = detailQuery.data;
 
+  if (!item) {
+    return <ErrorState message="Für dieses Gewinnspiel sind aktuell keine Details verfügbar." onRetry={() => detailQuery.refetch()} />;
+  }
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={<RefreshControl refreshing={detailQuery.isRefetching} onRefresh={detailQuery.refetch} />}
+    >
+      {detailQuery.isError ? <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Details können veraltet sein.</Text> : null}
       {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.image} /> : null}
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.teaser}>{item.teaser}</Text>
       {item.expiresAt ? (
         <View style={styles.metaTag}>
-          <Text style={styles.metaText}>Läuft bis: {item.expiresAt}</Text>
+          <Text style={styles.metaText}>Läuft bis: {formatExpiresAt(item.expiresAt)}</Text>
         </View>
       ) : null}
       {item.description ? <Text style={styles.body}>{item.description}</Text> : null}
@@ -87,5 +103,9 @@ const styles = StyleSheet.create({
   buttonLabel: {
     color: '#fff',
     fontWeight: '700'
+  },
+  inlineWarning: {
+    color: '#9b6a00',
+    fontSize: 12
   }
 });

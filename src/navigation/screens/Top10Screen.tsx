@@ -15,14 +15,17 @@ export function Top10Screen() {
   const top10Query = useTop10();
   const navigation = useNavigation<NavigationProp>();
 
-  if (top10Query.isLoading) return <LoadingState label="Top10 wird geladen…" />;
+  if (top10Query.isLoading && !Array.isArray(top10Query.data)) {
+    return <LoadingState label="Top10 wird geladen…" />;
+  }
 
-  if (top10Query.isError) {
+  if (top10Query.isError && !Array.isArray(top10Query.data)) {
     return <ErrorState message={(top10Query.error as Error).message} onRetry={() => top10Query.refetch()} />;
   }
 
   return (
     <View style={styles.container}>
+      {top10Query.isError ? <Text style={styles.inlineWarning}>Offline/Fallback aktiv: Ranking kann veraltet sein.</Text> : null}
       <FlatList
         data={top10Query.data ?? []}
         keyExtractor={(item) => item.id}
@@ -81,6 +84,11 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: '#88949c',
+    fontSize: 12
+  },
+  inlineWarning: {
+    marginBottom: 10,
+    color: '#9b6a00',
     fontSize: 12
   }
 });
