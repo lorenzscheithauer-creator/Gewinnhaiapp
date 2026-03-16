@@ -70,7 +70,7 @@ export function GiveawayDetailScreen({ route }: Props) {
         />
       )}
       {item.sourceUrl ? (
-        <Pressable style={styles.button} onPress={() => openSource(item.sourceUrl)}>
+        <Pressable style={styles.button} onPress={() => item.sourceUrl && openSource(item.sourceUrl)}>
           <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
         </Pressable>
       ) : (

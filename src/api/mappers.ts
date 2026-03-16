@@ -17,6 +17,15 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+function asStringFromUnknown(value: unknown): string | undefined {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return asString(value);
+  }
+
+  const record = asRecord(value);
+  return firstString(record.rendered, record.raw, record.value, record.label, record.text, record.title);
+}
+
 function asNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -32,7 +41,7 @@ function asNumber(value: unknown): number | undefined {
 
 function firstString(...values: unknown[]): string | undefined {
   for (const value of values) {
-    const str = asString(value);
+    const str = asStringFromUnknown(value);
     if (str) return str;
   }
 
@@ -118,9 +127,7 @@ function stripHtml(raw: string | undefined): string | undefined {
 }
 
 function extractWpField(value: unknown): string | undefined {
-  if (typeof value === 'string') return value;
-  const record = asRecord(value);
-  return asString(record.rendered ?? record.raw);
+  return asStringFromUnknown(value);
 }
 
 function extractWpCategoryId(item: Record<string, unknown>): string | undefined {
@@ -210,7 +217,7 @@ function toSlug(value: string | undefined): string | undefined {
 }
 
 function fallbackId(item: Record<string, unknown>, title: string | undefined): string | undefined {
-  const sourceUrl = normalizeUrl(firstString(item.link, item.source_url, item.url));
+  const sourceUrl = normalizeUrl(firstString(item.link, item.source_url, item.url, asRecord(item.guid).rendered));
   if (sourceUrl) return sourceUrl;
   return toSlug(title);
 }
@@ -280,7 +287,7 @@ export function mapGiveaway(raw: unknown): Giveaway {
     expiresAt: normalizeDate(
       firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt, item.modified_gmt, extractAfcValue(item, 'expires_at'))
     ),
-    sourceUrl: extractSourceUrl(item, acf) ?? 'https://www.gewinnhai.de',
+    sourceUrl: extractSourceUrl(item, acf),
     featured: Boolean(item.featured ?? item.is_featured ?? extractAfcValue(item, 'featured') ?? acf.is_featured)
   };
 }
@@ -288,13 +295,14 @@ export function mapGiveaway(raw: unknown): Giveaway {
 export function mapCategory(raw: unknown): Category {
   const item = asRecord(raw);
   const wpTitle = stripHtml(extractWpField(item.name));
+  const acf = asRecord(item.acf);
   const title = normalizeText(firstString(item.title, wpTitle, item.name, item.label)) ?? '';
 
   return {
-    id: firstString(item.id, item.category_id, item.slug, title) ?? 'unknown',
+    id: firstString(item.id, item.term_id, item.category_id, item.slug, title) ?? 'unknown',
     slug: firstString(item.slug, item.seo_slug, item.id, toSlug(title)) ?? (toSlug(title) || 'unknown'),
     title: title || 'Kategorie',
-    iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail, asRecord(item.acf).icon))
+    iconUrl: normalizeUrl(firstString(item.iconUrl, item.icon_url, item.icon, item.image, item.thumbnail, acf.icon, acf.icon_url, acf.image))
   };
 }
 
@@ -328,7 +336,19 @@ export function mapTopItem(raw: unknown, index: number): TopItem {
   );
 
   const title =
-    normalizeText(firstString(wpTitle, item.title, item.name, item.headline, nestedGiveaway.title, nestedPost.title, acf.title)) ?? `Top ${index + 1}`;
+    normalizeText(
+      firstString(
+        wpTitle,
+        item.title,
+        item.name,
+        item.headline,
+        nestedGiveaway.title,
+        nestedPost.title,
+        extractWpField(nestedGiveaway.title),
+        extractWpField(nestedPost.title),
+        acf.title
+      )
+    ) ?? `Top ${index + 1}`;
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
     rank: asNumber(item.rank ?? item.position ?? item.place ?? acf.rank) ?? index + 1,

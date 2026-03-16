@@ -293,7 +293,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
       const sanitized = sanitizeGiveawayList(uniqueById(mapped));
 
-      if (!sanitized.length && mapped.length) {
+      if (!sanitized.length) {
         throw new Error('Es wurden keine verwertbaren Live-Gewinnspiele geliefert.');
       }
 
@@ -381,7 +381,7 @@ export async function fetchCategories(): Promise<Category[]> {
       );
       const sanitized = sanitizeCategoryList(mapped);
 
-      if (!sanitized.length && mapped.length) {
+      if (!sanitized.length) {
         throw new Error('Es wurden keine verwertbaren Live-Kategorien geliefert.');
       }
 
@@ -430,7 +430,7 @@ export async function fetchTop10(): Promise<TopItem[]> {
         });
       const sanitized = sanitizeTop10(mapped);
 
-      if (!sanitized.length && mapped.length) {
+      if (!sanitized.length) {
         throw new Error('Es wurden keine verwertbaren Live-Top10-Daten geliefert.');
       }
 

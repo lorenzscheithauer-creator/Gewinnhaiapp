@@ -14,7 +14,7 @@ export interface Giveaway {
   imageUrl?: string;
   categoryId?: string;
   expiresAt?: string;
-  sourceUrl: string;
+  sourceUrl?: string;
   featured?: boolean;
 }
 
