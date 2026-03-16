@@ -170,12 +170,43 @@ function uniqueById<T extends { id: string }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
+function uniqueGiveaways(items: Giveaway[]): Giveaway[] {
+  const byIdentity = new Map<string, Giveaway>();
+
+  items.forEach((item) => {
+    const keys = [item.id, item.slug, item.sourceUrl].map((entry) => entry?.trim().toLowerCase()).filter(Boolean) as string[];
+
+    if (!keys.length) {
+      return;
+    }
+
+    const existing = keys.map((key) => byIdentity.get(key)).find(Boolean);
+    const merged = mergeGiveawayWithFallback(item, existing ?? null);
+
+    keys.forEach((key) => byIdentity.set(key, merged));
+  });
+
+  const seen = new Set<string>();
+  const result: Giveaway[] = [];
+
+  byIdentity.forEach((item) => {
+    const fingerprint = `${item.id}::${item.slug}::${item.sourceUrl}`;
+    if (seen.has(fingerprint)) return;
+    seen.add(fingerprint);
+    result.push(item);
+  });
+
+  return result;
+}
+
 function hasMeaningfulText(value: string | undefined): boolean {
   return Boolean(value && value.trim().length >= 3);
 }
 
 function sanitizeGiveawayList(items: Giveaway[]): Giveaway[] {
-  return items.filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title)).slice(0, 150);
+  return uniqueGiveaways(items)
+    .filter((item) => item.id !== 'unknown' && hasMeaningfulText(item.title))
+    .slice(0, 150);
 }
 
 function mergeGiveawayWithFallback(primary: Giveaway, fallback?: Giveaway | null): Giveaway {
@@ -367,6 +398,34 @@ function applyLocalFilters(items: Giveaway[], params?: SearchParams): Giveaway[]
   return filterGiveawaysByQuery(filterGiveawaysByCategory(items, params), params);
 }
 
+async function fallbackGiveawaysFromBaseCache(params?: SearchParams): Promise<Giveaway[] | null> {
+  const baseCache = (await getCache<Giveaway[]>(CACHE_KEYS.giveaways, { allowExpired: true })) ?? [];
+  if (!baseCache.length) return null;
+
+  const filtered = applyLocalFilters(baseCache, params);
+  return filtered.length ? filtered : null;
+}
+
+async function fallbackCategoriesFromGiveaways(): Promise<Category[] | null> {
+  const baseCache = (await getCache<Giveaway[]>(CACHE_KEYS.giveaways, { allowExpired: true })) ?? [];
+  if (!baseCache.length) return null;
+
+  const inferred = sanitizeCategoryList(
+    uniqueById(
+      baseCache
+        .filter((item) => item.categoryId || item.categorySlug || item.categoryLabel)
+        .map((item, index) => ({
+          id: item.categoryId ?? item.categorySlug ?? `derived-${index}`,
+          slug: item.categorySlug ?? item.categoryId ?? `derived-${index}`,
+          title: item.categoryLabel ?? item.categorySlug ?? `Kategorie ${index + 1}`,
+          iconUrl: undefined
+        }))
+    )
+  );
+
+  return inferred.length ? inferred : null;
+}
+
 export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]> {
   const normalizedParams = normalizeSearchParams(params);
   const cacheKey = createCacheKey(CACHE_KEYS.giveaways, normalizedParams);
@@ -394,6 +453,9 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 
     return list;
   } catch (err) {
+    const fromBaseCache = await fallbackGiveawaysFromBaseCache(normalizedParams);
+    if (fromBaseCache) return fromBaseCache;
+
     return fallbackCache<Giveaway[]>(cacheKey, err);
   }
 }
@@ -482,6 +544,9 @@ export async function fetchCategories(): Promise<Category[]> {
     log('info', 'Categories synced from API.', { count: list.length });
     return list;
   } catch (err) {
+    const fromGiveaways = await fallbackCategoriesFromGiveaways();
+    if (fromGiveaways) return fromGiveaways;
+
     return fallbackCache<Category[]>(CACHE_KEYS.categories, err);
   }
 }

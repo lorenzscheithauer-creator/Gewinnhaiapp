@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Giveaway } from '../types/models';
@@ -8,9 +9,11 @@ interface GiveawayCardProps {
 }
 
 export function GiveawayCard({ item, onPress }: GiveawayCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   return (
     <Pressable style={styles.card} onPress={() => onPress(item)}>
-      {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.image} /> : null}
+      {item.imageUrl && !imageFailed ? <Image source={{ uri: item.imageUrl }} style={styles.image} onError={() => setImageFailed(true)} /> : null}
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.teaser} numberOfLines={3}>

@@ -65,7 +65,8 @@ export function SearchScreen() {
 
       <FlatList
         data={data}
-        keyExtractor={(item, index) => `${item.id}:${item.slug}:${index}`}
+        keyExtractor={(item) => `${item.id}:${item.slug}`}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />}
         ListEmptyComponent={
           query.trim().length < 2 ? (
@@ -76,7 +77,10 @@ export function SearchScreen() {
         }
         ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} /> : null}
         renderItem={({ item }: { item: Giveaway }) => (
-          <GiveawayCard item={item} onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: selected.slug || selected.id })} />
+          <GiveawayCard
+            item={item}
+            onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: (selected.slug || selected.id).trim() })}
+          />
         )}
       />
     </View>
