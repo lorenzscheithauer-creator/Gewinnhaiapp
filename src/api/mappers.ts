@@ -66,6 +66,8 @@ export function normalizeUrl(value: string | undefined): string | undefined {
   const withoutQuotes = trimmed.replace(/^['"]|['"]$/g, '');
   if (!withoutQuotes) return undefined;
 
+  if (/^(javascript|data):/i.test(withoutQuotes)) return undefined;
+
   if (withoutQuotes.startsWith('mailto:') || withoutQuotes.startsWith('tel:')) {
     return withoutQuotes;
   }
@@ -195,17 +197,18 @@ function normalizeDescription(value: unknown): string | undefined {
 
 export function mapGiveaway(raw: unknown): Giveaway {
   const item = asRecord(raw);
+  const acf = asRecord(item.acf);
   const wpTitle = stripHtml(extractWpField(item.title));
   const wpTeaser = stripHtml(extractWpField(item.excerpt));
   const wpDescription = stripHtml(extractWpField(item.content));
   const seoLinkSlug = extractGiveawayIdFromWpLink(item.link);
 
-  const normalizedTitle = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? '';
+  const normalizedTitle = normalizeText(firstString(wpTitle, item.title, item.name, item.headline, acf.title, acf.headline)) ?? '';
   const normalizedTeaser = normalizeText(
-    firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description, extractAfcValue(item, 'subtitle'))
+    firstString(wpTeaser, item.teaser, item.summary, item.short_description, item.description, extractAfcValue(item, 'subtitle'), acf.teaser)
   );
   const id =
-    firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url, extractAfcValue(item, 'giveaway_id'), seoLinkSlug) ??
+    firstString(item.id, item.giveaway_id, item.uuid, item.slug, item.url, extractAfcValue(item, 'giveaway_id'), acf.id, seoLinkSlug) ??
     firstString(wpTitle, item.name, item.headline, item.url) ??
     fallbackId(item, normalizedTitle);
   const slug = firstString(item.slug, item.seo_slug, seoLinkSlug, item.id, item.giveaway_id, toSlug(normalizedTitle)) ?? id ?? 'unknown';
@@ -219,10 +222,10 @@ export function mapGiveaway(raw: unknown): Giveaway {
     title: finalizedTitle,
     teaser: normalizedTeaser ?? 'Mehr Details in der Gewinnspielansicht.',
     description: normalizeDescription(
-      firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description'))
+      firstString(wpDescription, item.description, item.content, item.long_description, item.body, extractAfcValue(item, 'description'), acf.content)
     ),
     imageUrl: normalizeUrl(
-      firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractAfcValue(item, 'image'), extractWordpressImage(item))
+      firstString(item.imageUrl, item.image_url, item.image, item.thumbnail, item.cover_image, extractAfcValue(item, 'image'), acf.image_url, extractWordpressImage(item))
     ),
     categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item)),
     expiresAt: normalizeDate(
@@ -232,7 +235,7 @@ export function mapGiveaway(raw: unknown): Giveaway {
       normalizeUrl(
         firstString(item.sourceUrl, item.source_url, item.url, item.link, item.permalink, item.guid && asRecord(item.guid).rendered, extractAfcValue(item, 'source_url'))
       ) ?? 'https://www.gewinnhai.de',
-    featured: Boolean(item.featured ?? item.is_featured ?? extractAfcValue(item, 'featured'))
+    featured: Boolean(item.featured ?? item.is_featured ?? extractAfcValue(item, 'featured') ?? acf.is_featured)
   };
 }
 
@@ -251,29 +254,40 @@ export function mapCategory(raw: unknown): Category {
 
 export function mapTopItem(raw: unknown, index: number): TopItem {
   const item = asRecord(raw);
+  const acf = asRecord(item.acf);
+  const nestedGiveaway = asRecord(item.giveaway);
   const wpTitle = stripHtml(extractWpField(item.title));
   const wpTeaser = stripHtml(extractWpField(item.excerpt));
 
-  const giveawaySlug = firstString(item.slug, extractGiveawayIdFromWpLink(item.link), extractGiveawayIdFromWpLink(item.source_url));
+  const giveawaySlug = firstString(
+    item.slug,
+    nestedGiveaway.slug,
+    extractGiveawayIdFromWpLink(item.link),
+    extractGiveawayIdFromWpLink(item.source_url),
+    extractGiveawayIdFromWpLink(nestedGiveaway.link)
+  );
   const giveawayId = firstString(
     item.giveawayId,
     item.giveaway_id,
-    asRecord(item.acf).giveaway_id,
+    acf.giveaway_id,
+    nestedGiveaway.id,
     extractGiveawayIdFromWpLink(item.source_url),
     extractGiveawayIdFromWpLink(item.link),
     giveawaySlug,
     item.id
   );
 
-  const title = normalizeText(firstString(wpTitle, item.title, item.name, item.headline)) ?? `Top ${index + 1}`;
+  const title = normalizeText(firstString(wpTitle, item.title, item.name, item.headline, nestedGiveaway.title, acf.title)) ?? `Top ${index + 1}`;
   return {
     id: firstString(item.id, item.top_id, item.giveaway_id, item.slug, index + 1) ?? String(index + 1),
-    rank: asNumber(item.rank ?? item.position ?? item.place ?? asRecord(item.acf).rank) ?? index + 1,
+    rank: asNumber(item.rank ?? item.position ?? item.place ?? acf.rank) ?? index + 1,
     title,
-    teaser: normalizeText(firstString(wpTeaser, item.teaser, item.summary, item.description)),
+    teaser: normalizeText(firstString(wpTeaser, item.teaser, item.summary, item.description, nestedGiveaway.excerpt, acf.teaser)),
     giveawayId,
     giveawaySlug,
-    sourceUrl: normalizeUrl(firstString(item.sourceUrl, item.source_url, item.link, item.url, asRecord(item.guid).rendered))
+    sourceUrl: normalizeUrl(
+      firstString(item.sourceUrl, item.source_url, item.link, item.url, nestedGiveaway.link, nestedGiveaway.url, asRecord(item.guid).rendered)
+    )
   };
 }
 
