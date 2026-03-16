@@ -65,6 +65,16 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, '>');
 }
 
+function firstArray(...values: unknown[]): unknown[] | undefined {
+  for (const value of values) {
+    if (Array.isArray(value) && value.length > 0) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -141,6 +151,19 @@ function stripHtml(raw: string | undefined): string | undefined {
   return decodeHtmlEntities(raw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function extractUrlFromHtml(value: unknown): string | undefined {
+  const text = asString(value);
+  if (!text) return undefined;
+
+  const href = text.match(/href\s*=\s*['"]([^'"]+)['"]/i)?.[1];
+  if (href) return normalizeUrl(href);
+
+  const plainUrl = text.match(/https?:\/\/[^\s'"]+/i)?.[0];
+  if (plainUrl) return normalizeUrl(plainUrl);
+
+  return undefined;
+}
+
 function extractWpField(value: unknown): string | undefined {
   return asStringFromUnknown(value);
 }
@@ -167,6 +190,32 @@ function extractWpCategoryId(item: Record<string, unknown>): string | undefined 
   }
 
   return undefined;
+}
+
+function extractWpCategoryMeta(item: Record<string, unknown>): { id?: string; slug?: string; label?: string } {
+  const embedded = asRecord(item._embedded);
+  const terms = embedded['wp:term'];
+  if (!Array.isArray(terms)) {
+    return {};
+  }
+
+  for (const termGroup of terms) {
+    if (!Array.isArray(termGroup) || termGroup.length === 0) continue;
+
+    const preferredCategory = termGroup
+      .map((entry) => asRecord(entry))
+      .find((entry) => firstString(entry.taxonomy, entry.type) === 'category');
+    const category = preferredCategory ?? asRecord(termGroup[0]);
+
+    const id = firstString(category.id, category.term_id);
+    const slug = firstString(category.slug);
+    const label = normalizeText(firstString(category.name, category.title));
+    if (id || slug || label) {
+      return { id, slug, label };
+    }
+  }
+
+  return {};
 }
 
 function extractWordpressImage(item: Record<string, unknown>): string | undefined {
@@ -217,8 +266,12 @@ function extractSourceUrl(item: Record<string, unknown>, acf: Record<string, unk
       extractUrlFromObject(item.external_link),
       extractAfcValue(item, 'source_url'),
       extractAfcValue(item, 'external_url'),
+      extractAfcValue(item, 'affiliate_link'),
       acf.source_url,
-      acf.external_url
+      acf.external_url,
+      acf.affiliate_link,
+      extractUrlFromHtml(item.content),
+      extractUrlFromHtml(extractWpField(item.content))
     )
   );
 
@@ -272,6 +325,7 @@ export function mapGiveaway(raw: unknown): Giveaway {
   const wpTitle = stripHtml(extractWpField(item.title));
   const wpTeaser = stripHtml(extractWpField(item.excerpt));
   const wpDescription = stripHtml(extractWpField(item.content));
+  const wpCategoryMeta = extractWpCategoryMeta(item);
   const seoLinkSlug = extractGiveawayIdFromWpLink(item.link);
 
   const normalizedTitle = normalizeText(firstString(wpTitle, item.title, item.name, item.headline, acf.title, acf.headline)) ?? '';
@@ -311,9 +365,9 @@ export function mapGiveaway(raw: unknown): Giveaway {
         extractWordpressImage(item)
       )
     ),
-    categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item)),
-    categorySlug: firstString(item.categorySlug, item.category_slug, asRecord(item.category).slug, asRecord(item.term).slug),
-    categoryLabel: normalizeText(firstString(item.categoryName, item.category_name, asRecord(item.category).name, asRecord(item.term).name)),
+    categoryId: firstString(item.categoryId, item.category_id, item.categorySlug, item.category_slug, item.category, extractWpCategoryId(item), wpCategoryMeta.id),
+    categorySlug: firstString(item.categorySlug, item.category_slug, asRecord(item.category).slug, asRecord(item.term).slug, wpCategoryMeta.slug),
+    categoryLabel: normalizeText(firstString(item.categoryName, item.category_name, asRecord(item.category).name, asRecord(item.term).name, wpCategoryMeta.label)),
     expiresAt: normalizeDate(
       firstString(item.expiresAt, item.expires_at, item.expiration_date, item.end_date, item.date_gmt, item.modified_gmt, extractAfcValue(item, 'expires_at'))
     ),
@@ -422,6 +476,20 @@ export function extractList(rawData: unknown, nestedKeys: string[] = []): unknow
   if (Array.isArray(candidate)) return candidate;
 
   const record = asRecord(candidate);
+
+  const fallbackLists = firstArray(
+    record.posts,
+    record.entries,
+    record.items,
+    record.results,
+    record.data,
+    asRecord(record._embedded)['wp:term'],
+    asRecord(record._embedded)['wp:featuredmedia']
+  );
+  if (fallbackLists?.length) {
+    return fallbackLists.filter((entry) => entry && typeof entry === 'object');
+  }
+
   for (const key of nestedKeys) {
     const nested = record[key];
     if (Array.isArray(nested)) {

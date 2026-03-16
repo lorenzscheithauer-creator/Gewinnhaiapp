@@ -338,6 +338,35 @@ function toDetailCandidates(idOrSlug: string): string[] {
 }
 
 
+
+function toSafeLower(value: string | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function mergeByConfidence(primary: Giveaway, fallback?: Giveaway | null): Giveaway {
+  const merged = mergeGiveawayWithFallback(primary, fallback);
+  return {
+    ...merged,
+    sourceUrl: merged.sourceUrl ?? fallback?.sourceUrl,
+    categoryId: merged.categoryId ?? fallback?.categoryId,
+    categorySlug: merged.categorySlug ?? fallback?.categorySlug,
+    categoryLabel: merged.categoryLabel ?? fallback?.categoryLabel,
+    expiresAt: merged.expiresAt ?? fallback?.expiresAt
+  };
+}
+
+function validateGiveawayDetail(item: Giveaway): Giveaway {
+  if (item.id === 'unknown' || !hasMeaningfulText(item.title)) {
+    throw new Error('Ungültige Detaildaten von der API erhalten.');
+  }
+
+  if (!item.sourceUrl && !item.slug && !item.id) {
+    throw new Error('Detaildaten enthalten keinen gültigen Ziel-Link.');
+  }
+
+  return item;
+}
+
 function extractSlugFromUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
 
@@ -369,10 +398,10 @@ function filterGiveawaysByCategory(items: Giveaway[], params?: SearchParams): Gi
   const normalizedSlug = params.categorySlug?.trim().toLowerCase();
 
   return items.filter((item) => {
-    const idMatches = normalizedId ? item.categoryId === normalizedId : false;
+    const idMatches = normalizedId ? toSafeLower(item.categoryId) === toSafeLower(normalizedId) : false;
     const slugMatches = normalizedSlug
       ? [item.categorySlug, item.categoryLabel]
-          .map((entry) => String(entry ?? '').toLowerCase().trim())
+          .map((entry) => String(entry ?? '').toLowerCase().trim().replace(/\s+/g, '-'))
           .some((entry) => entry === normalizedSlug)
       : false;
 
@@ -478,13 +507,8 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
           const item = Array.isArray(extracted) ? extracted[0] : extracted;
           const mapped = mapGiveaway(item);
           const feedFallback = await resolveDetailFromFeed(candidate);
-          const enriched = mergeGiveawayWithFallback(mapped, feedFallback);
-
-          if (enriched.id === 'unknown' || !hasMeaningfulText(enriched.title)) {
-            throw new Error('Ungültige Detaildaten von der API erhalten.');
-          }
-
-          return enriched;
+          const enriched = mergeByConfidence(mapped, feedFallback);
+          return validateGiveawayDetail(enriched);
         } catch (error) {
           lastError = error;
         }
