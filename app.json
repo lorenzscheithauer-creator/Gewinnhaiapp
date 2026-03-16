@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Gewinnhai App",
+    "name": "Gewinnhai",
     "slug": "gewinnhai-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#f7f9fb"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -46,7 +46,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#f7f9fb"
       },
       "package": "com.gewinnhai.mobile",
       "versionCode": 1,
