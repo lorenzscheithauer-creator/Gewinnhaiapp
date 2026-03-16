@@ -63,7 +63,7 @@ export function GiveawayDetailScreen({ route }: Props) {
       refreshControl={<RefreshControl refreshing={detailQuery.isRefetching && !detailQuery.isPending} onRefresh={() => detailQuery.refetch()} />}
     >
       {detailQuery.isError ? <Text style={styles.inlineWarning}>Offline-Modus: Details können veraltet sein.</Text> : null}
-      {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.image} /> : null}
+      {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" /> : null}
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.teaser}>{item.teaser}</Text>
       {item.expiresAt ? (
@@ -81,7 +81,7 @@ export function GiveawayDetailScreen({ route }: Props) {
         />
       )}
       {actionUrl ? (
-        <Pressable style={styles.button} onPress={() => actionUrl && openSource(actionUrl)}>
+        <Pressable style={styles.button} onPress={() => actionUrl && openSource(actionUrl)} accessibilityRole="button" hitSlop={6}>
           <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
         </Pressable>
       ) : (

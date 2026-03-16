@@ -50,6 +50,8 @@ export function Top10Screen() {
               })
             }
             style={styles.item}
+            accessibilityRole="button"
+            hitSlop={6}
           >
 
             <Text style={styles.rank}>#{item.rank}</Text>

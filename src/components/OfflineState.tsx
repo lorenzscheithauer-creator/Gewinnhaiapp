@@ -11,7 +11,7 @@ export function OfflineState({ message, onRetry }: OfflineStateProps) {
       <Text style={styles.title}>Du bist gerade offline</Text>
       <Text style={styles.message}>{message ?? 'Bitte prüfe deine Verbindung. Wir zeigen verfügbare Cache-Daten, sobald vorhanden.'}</Text>
       {onRetry ? (
-        <Pressable onPress={onRetry} style={styles.button}>
+        <Pressable onPress={onRetry} style={styles.button} accessibilityRole="button" hitSlop={8}>
           <Text style={styles.buttonLabel}>Erneut versuchen</Text>
         </Pressable>
       ) : null}

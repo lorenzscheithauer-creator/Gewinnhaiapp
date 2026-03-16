@@ -12,7 +12,7 @@ export function EmptyState({ title, message, onRetry }: EmptyStateProps) {
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {onRetry ? (
-        <Pressable onPress={onRetry} style={styles.button}>
+        <Pressable onPress={onRetry} style={styles.button} accessibilityRole="button" hitSlop={8}>
           <Text style={styles.buttonLabel}>Neu laden</Text>
         </Pressable>
       ) : null}

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gewinnhai",
     "slug": "gewinnhai-mobile",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "gewinnhai",
@@ -19,7 +19,7 @@
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_ERROR_RECOVERY"
+      "checkAutomatically": "ON_LOAD"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -27,7 +27,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.gewinnhai.mobile",
-      "buildNumber": "1.0.2",
+      "buildNumber": "1.0.3",
       "requireFullScreen": true,
       "infoPlist": {
         "CFBundleDisplayName": "Gewinnhai",
@@ -53,7 +53,7 @@
         "backgroundColor": "#f7f9fb"
       },
       "package": "com.gewinnhai.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "INTERNET"
       ],
@@ -83,7 +83,8 @@
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
-      ]
+      ],
+      "edgeToEdgeEnabled": true
     },
     "extra": {
       "apiBaseUrl": "https://www.gewinnhai.de",
