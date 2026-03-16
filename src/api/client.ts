@@ -4,6 +4,8 @@ import { ENV } from '../config/env';
 
 const RETRY_ATTEMPTS = 2;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36 GewinnhaiApp/1.0';
 
 function tryParseJsonPayload(data: unknown): unknown {
   if (typeof data !== 'string') return data;
@@ -69,7 +71,10 @@ export const apiClient = axios.create({
     Accept: 'application/json',
     'Content-Type': 'application/json',
     'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
-    'X-Requested-With': 'XMLHttpRequest'
+    'X-Requested-With': 'XMLHttpRequest',
+    'User-Agent': DEFAULT_USER_AGENT,
+    Referer: 'https://www.gewinnhai.de/',
+    Origin: 'https://www.gewinnhai.de'
   },
   transformResponse: [...transformResponse, (data) => tryParseJsonPayload(data)]
 });
