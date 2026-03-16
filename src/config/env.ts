@@ -33,8 +33,11 @@ const publicApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 const publicApiTimeoutMs = process.env.EXPO_PUBLIC_API_TIMEOUT_MS;
 const publicAppEnv = process.env.EXPO_PUBLIC_APP_ENV;
 
+const appEnv = publicAppEnv || extras.appEnv || 'production';
+
 export const ENV = {
-  appEnv: publicAppEnv || extras.appEnv || 'production',
+  appEnv,
+  isProduction: appEnv === 'production',
   apiBaseUrl: withNoTrailingSlash(publicApiBaseUrl || extras.apiBaseUrl || 'https://www.gewinnhai.de'),
   apiTimeoutMs: toSafeTimeoutMs(publicApiTimeoutMs || extras.apiTimeoutMs, 10000),
   endpoints: {
@@ -42,5 +45,11 @@ export const ENV = {
     giveawayDetail: normalizeEndpoints(extras.endpoints?.giveawayDetail, ['/api/giveaways/{idOrSlug}', '/wp-json/wp/v2/posts/{idOrSlug}']),
     categories: normalizeEndpoints(extras.endpoints?.categories, ['/api/categories', '/wp-json/wp/v2/categories']),
     top10: normalizeEndpoints(extras.endpoints?.top10, ['/api/top10', '/wp-json/wp/v2/posts'])
+  },
+  query: {
+    listStaleMs: 2 * 60_000,
+    listGcMs: 45 * 60_000,
+    detailStaleMs: 2 * 60_000,
+    detailGcMs: 45 * 60_000
   }
 };

@@ -64,12 +64,18 @@ export function Top10Screen() {
         ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={() => top10Query.refetch()} />}
         renderItem={({ item }: { item: TopItem }) => (
           <Pressable onPress={() => openDetail(item)} style={styles.item}>
+
             <Text style={styles.rank}>#{item.rank}</Text>
             <View style={styles.textContainer}>
               <Text style={styles.title}>{item.title}</Text>
               {item.teaser ? <Text style={styles.teaser}>{item.teaser}</Text> : null}
               {!item.giveawayId && !item.giveawaySlug && item.sourceUrl ? (
                 <Text style={styles.hint}>Öffnet direkt den externen Gewinnspiel-Link.</Text>
+              ) : null}
+              {item.sourceUrl ? (
+                <Text style={styles.linkHint} numberOfLines={1}>
+                  {item.sourceUrl}
+                </Text>
               ) : null}
             </View>
           </Pressable>
@@ -115,6 +121,10 @@ const styles = StyleSheet.create({
   hint: {
     color: '#88949c',
     fontSize: 12
+  },
+  linkHint: {
+    color: '#607d8b',
+    fontSize: 11
   },
   inlineWarning: {
     marginBottom: 10,

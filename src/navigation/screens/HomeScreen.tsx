@@ -10,9 +10,10 @@ import { ErrorState } from '../../components/ErrorState';
 import { GiveawayCard } from '../../components/GiveawayCard';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
-import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
+import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
 import { MainTabParamList, RootStackParamList } from '../types';
 
 type HomeRouteProp = RouteProp<MainTabParamList, 'Home'>;
@@ -24,11 +25,12 @@ export function HomeScreen() {
   const navigation = useNavigation<DetailNavigation>();
   const tabNavigation = useNavigation<TabNavigation>();
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, 350);
 
   const categoryId = route.params?.categoryId;
   const categoryTitle = route.params?.categoryTitle;
 
-  const giveawaysQuery = useGiveaways({ query, categoryId });
+  const giveawaysQuery = useGiveaways({ query: debouncedQuery, categoryId });
   useRefetchOnFocus(giveawaysQuery.refetch);
 
   const data = useMemo(() => giveawaysQuery.data ?? [], [giveawaysQuery.data]);
@@ -54,7 +56,15 @@ export function HomeScreen() {
           </Pressable>
         </View>
       ) : null}
-      <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" />
+      <View style={styles.searchRow}>
+        <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" />
+        {query.length > 0 ? (
+          <Pressable style={styles.clearButton} onPress={() => setQuery('')}>
+            <Text style={styles.clearLabel}>Reset</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {query.trim().length === 1 ? <Text style={styles.inlineHint}>Mindestens 2 Zeichen für die Suche eingeben.</Text> : null}
       {giveawaysQuery.isError && data.length > 0 ? (
         <Text style={styles.inlineWarning}>Offline-Modus: Es werden zuletzt geladene Live-Daten angezeigt.</Text>
       ) : null}
@@ -65,14 +75,11 @@ export function HomeScreen() {
           <RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />
         }
         ListEmptyComponent={<EmptyState title="Keine Treffer" message="Passe die Suche oder Filter an." onRetry={() => giveawaysQuery.refetch()} />}
+        ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} /> : null}
         renderItem={({ item }: { item: Giveaway }) => (
-          <GiveawayCard
-            item={item}
-            onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: selected.slug || selected.id })}
-          />
+          <GiveawayCard item={item} onPress={(selected) => navigation.navigate('GiveawayDetail', { idOrSlug: selected.slug || selected.id })} />
         )}
       />
-      {giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>
   );
 }
@@ -101,23 +108,42 @@ const styles = StyleSheet.create({
     color: '#0a7ea4',
     textDecorationLine: 'underline'
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12
+  },
   search: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#ddd',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12
+    paddingVertical: 10
+  },
+  clearButton: {
+    backgroundColor: '#dfeef3',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  clearLabel: {
+    color: '#0a7ea4',
+    fontWeight: '600'
+  },
+  inlineHint: {
+    marginBottom: 10,
+    color: '#50636d',
+    fontSize: 12
   },
   inlineWarning: {
     marginBottom: 10,
     color: '#9b6a00',
     fontSize: 12
   },
-  fetchingIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 12
+  listLoader: {
+    marginVertical: 12
   }
 });

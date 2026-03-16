@@ -6,6 +6,7 @@ import { Category, Giveaway, SearchParams, TopItem } from '../types/models';
 import { getCache, setCache } from '../utils/cache';
 import { extractDetail, extractList, mapCategory, mapGiveaway, mapTopItem } from './mappers';
 import { ENV } from '../config/env';
+import { log } from '../utils/logger';
 
 const CACHE_TTL = {
   giveaways: 10 * 60_000,
@@ -218,6 +219,7 @@ async function tryEndpoints<T>(
       return await runner(endpoint, index);
     } catch (error) {
       lastError = error;
+      log('warn', 'Endpoint request failed, trying next fallback.', { endpoint, error });
     }
   }
 
@@ -301,6 +303,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
     });
 
     await setCache(cacheKey, list, { ttlMs: CACHE_TTL.giveaways });
+    log('info', 'Giveaways synced from API.', { count: list.length, cacheKey });
     if (!params?.query && !params?.categoryId) {
       await persistFeedSnapshot(list);
     }
@@ -343,6 +346,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
     });
 
     await Promise.all(cacheKeys.map((cacheKey) => setCache(cacheKey, detail, { ttlMs: CACHE_TTL.giveawayDetail })));
+    log('info', 'Giveaway detail synced from API.', { idOrSlug, resolvedId: detail.id });
     return detail;
   } catch (err) {
     for (const cacheKey of cacheKeys) {
@@ -389,6 +393,7 @@ export async function fetchCategories(): Promise<Category[]> {
     });
 
     await setCache(CACHE_KEYS.categories, list, { ttlMs: CACHE_TTL.categories });
+    log('info', 'Categories synced from API.', { count: list.length });
     return list;
   } catch (err) {
     return fallbackCache<Category[]>(CACHE_KEYS.categories, err);
@@ -438,6 +443,7 @@ export async function fetchTop10(): Promise<TopItem[]> {
     });
 
     await setCache(CACHE_KEYS.top10, list, { ttlMs: CACHE_TTL.top10 });
+    log('info', 'Top10 synced from API.', { count: list.length });
     return list;
   } catch (err) {
     const fallbackFromCache = await getCache<TopItem[]>(CACHE_KEYS.top10, { allowExpired: true });

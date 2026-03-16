@@ -19,7 +19,7 @@
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "ON_ERROR_RECOVERY"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -36,7 +36,11 @@
           "https",
           "mailto",
           "tel"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
       },
       "associatedDomains": [
         "applinks:gewinnhai.de",
@@ -75,7 +79,11 @@
           ]
         }
       ],
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ]
     },
     "extra": {
       "apiBaseUrl": "https://www.gewinnhai.de",

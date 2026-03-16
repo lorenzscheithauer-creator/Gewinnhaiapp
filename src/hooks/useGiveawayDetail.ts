@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchGiveawayDetail } from '../api/giveaways';
+import { giveawaysRepository } from '../data/giveawaysRepository';
+import { ENV } from '../config/env';
 
 export function useGiveawayDetail(idOrSlug: string) {
   return useQuery({
     queryKey: ['giveaway-detail', idOrSlug],
-    queryFn: () => fetchGiveawayDetail(idOrSlug),
+    queryFn: () => giveawaysRepository.detail(idOrSlug),
     enabled: Boolean(idOrSlug),
-    staleTime: 2 * 60_000,
-    gcTime: 45 * 60_000,
+    staleTime: ENV.query.detailStaleMs,
+    gcTime: ENV.query.detailGcMs,
     refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
