@@ -159,7 +159,41 @@ function sanitizeCategoryList(items: Category[]): Category[] {
 }
 
 function sanitizeTop10(items: TopItem[]): TopItem[] {
-  return items.filter((item) => hasMeaningfulText(item.title)).sort((left, right) => left.rank - right.rank).slice(0, 10);
+  const sanitized = items
+    .filter((item) => hasMeaningfulText(item.title))
+    .sort((left, right) => left.rank - right.rank)
+    .slice(0, 10)
+    .map((item, index) => ({
+      ...item,
+      rank: Number.isFinite(item.rank) && item.rank > 0 ? item.rank : index + 1
+    }));
+
+  return sanitized.map((item, index) => ({ ...item, rank: index + 1 }));
+}
+
+function includesTop10Hint(item: Record<string, unknown>): boolean {
+  const values = [item.slug, item.title, item.name, item.link, item.source_url]
+    .map((entry) => String(entry ?? '').toLowerCase())
+    .join(' ');
+
+  return values.includes('top10') || values.includes('top-10') || values.includes('top 10');
+}
+
+async function resolveDetailFromFeed(candidate: string): Promise<Giveaway | null> {
+  const [freshFeed, staleFeed] = await Promise.all([
+    getCache<Giveaway[]>(CACHE_KEYS.giveaways),
+    getCache<Giveaway[]>(CACHE_KEYS.giveaways, { allowExpired: true })
+  ]);
+
+  const merged = uniqueById([...(freshFeed ?? []), ...(staleFeed ?? [])]);
+  if (!merged.length) return null;
+
+  const normalized = candidate.trim().toLowerCase();
+  return (
+    merged.find((item) => [item.id, item.slug].map((entry) => entry?.toLowerCase()).includes(normalized)) ??
+    merged.find((item) => item.sourceUrl?.toLowerCase().includes(normalized)) ??
+    null
+  );
 }
 
 async function persistFeedSnapshot(giveaways: Giveaway[]): Promise<void> {
@@ -321,6 +355,11 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
       if (cached) return cached;
     }
 
+    for (const candidate of candidates) {
+      const fromFeed = await resolveDetailFromFeed(candidate);
+      if (fromFeed) return fromFeed;
+    }
+
     throw new Error(getErrorMessage(err));
   }
 }
@@ -330,7 +369,16 @@ export async function fetchCategories(): Promise<Category[]> {
     const list = await tryEndpoints(ENV.endpoints.categories, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/') ? { per_page: 100, orderby: 'count', order: 'desc' } : undefined;
       const { data } = await apiClient.get<ApiCategoryListResponse>(endpoint, { params: requestParams });
-      const mapped = uniqueById(extractList(data, ['categories', 'items', 'data']).map(mapCategory));
+      const rawItems = extractList(data, ['categories', 'items', 'data']);
+      const mapped = uniqueById(
+        rawItems
+          .filter((item) => {
+            const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+            const count = Number(record.count ?? 1);
+            return Number.isFinite(count) ? count > 0 : true;
+          })
+          .map(mapCategory)
+      );
       const sanitized = sanitizeCategoryList(mapped);
 
       if (!sanitized.length && mapped.length) {
@@ -363,16 +411,23 @@ export async function fetchTop10(): Promise<TopItem[]> {
           }
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });
-      const mapped = extractList(data, ['top10', 'items', 'data']).map((item, index) => {
-        const parsed = mapTopItem(item, index);
-        const inferredSlug = extractSlugFromUrl(parsed.sourceUrl);
+      const rawItems = extractList(data, ['top10', 'items', 'data']);
+      const mapped = rawItems
+        .filter((item) => {
+          if (!endpoint.includes('/wp-json/')) return true;
+          const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+          return includesTop10Hint(record) || rawItems.length <= 10;
+        })
+        .map((item, index) => {
+          const parsed = mapTopItem(item, index);
+          const inferredSlug = extractSlugFromUrl(parsed.sourceUrl);
 
-        return {
-          ...parsed,
-          giveawaySlug: parsed.giveawaySlug ?? inferredSlug,
-          giveawayId: parsed.giveawayId ?? inferredSlug
-        };
-      });
+          return {
+            ...parsed,
+            giveawaySlug: parsed.giveawaySlug ?? inferredSlug,
+            giveawayId: parsed.giveawayId ?? inferredSlug
+          };
+        });
       const sanitized = sanitizeTop10(mapped);
 
       if (!sanitized.length && mapped.length) {
