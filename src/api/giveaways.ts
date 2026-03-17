@@ -64,7 +64,15 @@ function getErrorMessage(err: unknown): string {
     }
 
     if (!err.response) {
-      return 'Keine Verbindung zur GewinnHai-API. Offline-Daten werden verwendet, sofern vorhanden.';
+      return 'Keine Verbindung zur GewinnHai-API. Bitte Internetverbindung prüfen.';
+    }
+
+    if (err.response.status === 404) {
+      return 'Der angeforderte API-Endpunkt wurde nicht gefunden (404).';
+    }
+
+    if (err.response.status === 408) {
+      return 'Zeitüberschreitung bei der Serverantwort. Bitte erneut versuchen.';
     }
 
     return `API-Fehler (${err.response.status}). Bitte später erneut versuchen.`;
@@ -308,10 +316,40 @@ async function tryEndpoints<T>(
     const endpoint = normalizeEndpoint(endpoints[index]);
 
     try {
+      log('debug', 'Trying API endpoint.', { endpoint, attempt: index + 1, total: endpoints.length });
       return await runner(endpoint, index);
     } catch (error) {
       lastError = error;
-      log('warn', 'Endpoint request failed, trying next fallback.', { endpoint, error });
+      const isAxios = error instanceof AxiosError;
+      const status = isAxios ? error.response?.status : undefined;
+      const code = isAxios ? error.code : undefined;
+      const reason =
+        status != null
+          ? `http_${status}`
+          : code === 'ECONNABORTED'
+            ? 'timeout'
+            : isAxios && !error.response
+              ? 'network_unreachable'
+              : 'invalid_payload';
+
+      if (index < endpoints.length - 1) {
+        log('warn', 'Endpoint failed, switching to fallback endpoint.', {
+          endpoint,
+          nextEndpoint: normalizeEndpoint(endpoints[index + 1]),
+          reason,
+          status,
+          code,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      } else {
+        log('warn', 'Endpoint failed and no fallback endpoint remains.', {
+          endpoint,
+          reason,
+          status,
+          code,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
     }
   }
 
@@ -621,7 +659,8 @@ export async function fetchCategories(): Promise<Category[]> {
 
 export async function fetchTop10(): Promise<TopItem[]> {
   try {
-    const wpTop10TagId = await resolveWpTagIdBySlug('top10');
+    const hasWpTop10Endpoint = ENV.endpoints.top10.some((entry) => entry.includes('/wp-json/'));
+    const wpTop10TagId = hasWpTop10Endpoint ? await resolveWpTagIdBySlug('top10') : undefined;
 
     const list = await tryEndpoints(ENV.endpoints.top10, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/')

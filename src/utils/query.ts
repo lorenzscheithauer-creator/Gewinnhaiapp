@@ -2,7 +2,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { isAxiosError } from 'axios';
 import { useCallback, useRef } from 'react';
 
-export type QueryErrorKind = 'offline' | 'api_unreachable' | 'api_error' | 'cors' | 'unknown';
+export type QueryErrorKind =
+  | 'offline'
+  | 'timeout'
+  | 'api_not_found'
+  | 'api_unreachable'
+  | 'invalid_response'
+  | 'empty_data'
+  | 'api_error'
+  | 'cors'
+  | 'unknown';
 
 interface QueryErrorInfo {
   kind: QueryErrorKind;
@@ -17,6 +26,7 @@ function isNavigatorOnline(): boolean {
 
 export function classifyQueryError(error: unknown): QueryErrorInfo {
   const fallbackMessage = error instanceof Error ? error.message : 'Unerwarteter Fehler beim Laden der Daten.';
+  const normalizedMessage = fallbackMessage.toLowerCase();
 
   if (!isNavigatorOnline()) {
     return {
@@ -27,7 +37,23 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
   }
 
   if (isAxiosError(error)) {
+    if (error.code === 'ECONNABORTED') {
+      return {
+        kind: 'timeout',
+        title: 'Server antwortet nicht rechtzeitig',
+        message: 'GewinnHai ist erreichbar, aber der Request lief in ein Timeout. Bitte gleich erneut versuchen.'
+      };
+    }
+
     if (error.response) {
+      if (error.response.status === 404) {
+        return {
+          kind: 'api_not_found',
+          title: 'API-Endpunkt nicht gefunden (404)',
+          message: 'Die angeforderte Datenquelle existiert auf dem Server nicht. Bitte später erneut versuchen.'
+        };
+      }
+
       return {
         kind: 'api_error',
         title: `Serverantwort: ${error.response.status}`,
@@ -35,16 +61,7 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
       };
     }
 
-    if (error.code === 'ECONNABORTED') {
-      return {
-        kind: 'api_unreachable',
-        title: 'Server antwortet nicht rechtzeitig',
-        message: 'GewinnHai ist erreichbar, aber der Request lief in ein Timeout. Bitte gleich erneut versuchen.'
-      };
-    }
-
-    const msg = fallbackMessage.toLowerCase();
-    if (msg.includes('network error') || msg.includes('failed to fetch') || msg.includes('err_network')) {
+    if (normalizedMessage.includes('network error') || normalizedMessage.includes('failed to fetch') || normalizedMessage.includes('err_network')) {
       return {
         kind: 'cors',
         title: 'Verbindung blockiert',
@@ -56,6 +73,42 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
       kind: 'api_unreachable',
       title: 'API aktuell nicht erreichbar',
       message: fallbackMessage
+    };
+  }
+
+  if (normalizedMessage.includes('404') || normalizedMessage.includes('nicht gefunden')) {
+    return {
+      kind: 'api_not_found',
+      title: 'API-Endpunkt nicht gefunden (404)',
+      message: 'Die angeforderte Datenquelle existiert auf dem Server nicht. Bitte später erneut versuchen.'
+    };
+  }
+
+  if (normalizedMessage.includes('zeitüberschreitung') || normalizedMessage.includes('timeout')) {
+    return {
+      kind: 'timeout',
+      title: 'Server antwortet nicht rechtzeitig',
+      message: 'Der Server hat nicht rechtzeitig geantwortet. Bitte gleich erneut versuchen.'
+    };
+  }
+
+  if (normalizedMessage.includes('keine verwertbaren') || normalizedMessage.includes('keine daten') || normalizedMessage.includes('leer')) {
+    return {
+      kind: 'empty_data',
+      title: 'Keine Daten gefunden',
+      message: 'Der Server hat geantwortet, aber aktuell keine passenden Inhalte geliefert.'
+    };
+  }
+
+  if (
+    normalizedMessage.includes('unerwartete antwort') ||
+    normalizedMessage.includes('ungültige detaildaten') ||
+    normalizedMessage.includes('kein gültigen ziel-link')
+  ) {
+    return {
+      kind: 'invalid_response',
+      title: 'Ungültige Serverantwort',
+      message: 'Die Antwort vom Server konnte nicht zuverlässig verarbeitet werden.'
     };
   }
 
