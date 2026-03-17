@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Giveaway } from '../types/models';
@@ -8,11 +8,15 @@ interface GiveawayCardProps {
   onPress: (item: Giveaway) => void;
 }
 
-export function GiveawayCard({ item, onPress }: GiveawayCardProps) {
+function GiveawayCardComponent({ item, onPress }: GiveawayCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
+
   return (
-    <Pressable style={styles.card} onPress={() => onPress(item)} accessibilityRole="button" hitSlop={6}>
+    <Pressable style={styles.card} onPress={handlePress} accessibilityRole="button" hitSlop={6}>
       {item.imageUrl && !imageFailed ? <Image source={{ uri: item.imageUrl }} style={styles.image} onError={() => setImageFailed(true)} /> : null}
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
@@ -23,6 +27,8 @@ export function GiveawayCard({ item, onPress }: GiveawayCardProps) {
     </Pressable>
   );
 }
+
+export const GiveawayCard = memo(GiveawayCardComponent);
 
 const styles = StyleSheet.create({
   card: {

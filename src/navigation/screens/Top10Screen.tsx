@@ -1,6 +1,7 @@
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback } from 'react';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -11,8 +12,11 @@ import { TopItem } from '../../types/models';
 import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { RootStackParamList } from '../types';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
+import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+const ESTIMATED_ITEM_HEIGHT = 140;
 
 export function Top10Screen() {
   const top10Query = useTop10();
@@ -21,14 +25,50 @@ export function Top10Screen() {
   useRefetchOnFocus(top10Query.refetch);
   const offline = isOfflineError(top10Query.error);
 
+  const handleRefresh = useCallback(() => {
+    void top10Query.refetch();
+  }, [top10Query]);
+
+  const keyExtractor = useCallback((item: TopItem) => `${item.id}:${item.rank}`, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: TopItem }) => (
+      <Pressable
+        onPress={() =>
+          void openGiveawaySelection(item, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }), {
+            missingDetailTitle: 'Kein Detail verfügbar',
+            missingDetailMessage: 'Für diesen Eintrag ist aktuell weder Detailseite noch Link vorhanden.'
+          })
+        }
+        style={styles.item}
+        accessibilityRole="button"
+        hitSlop={6}
+      >
+        <Text style={styles.rank}>#{item.rank}</Text>
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{item.title}</Text>
+          {item.teaser ? <Text style={styles.teaser}>{item.teaser}</Text> : null}
+          {!item.giveawayId && !item.giveawaySlug && item.sourceUrl ? (
+            <Text style={styles.hint}>Öffnet direkt den externen Gewinnspiel-Link.</Text>
+          ) : null}
+          {item.sourceUrl ? (
+            <Text style={styles.linkHint} numberOfLines={1}>
+              {item.sourceUrl}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    ),
+    [navigation]
+  );
 
   if (top10Query.isPending && !Array.isArray(top10Query.data)) {
     return <LoadingState label="Top10 wird geladen…" />;
   }
 
   if (top10Query.isError && !Array.isArray(top10Query.data)) {
-    if (offline) return <OfflineState message={(top10Query.error as Error).message} onRetry={() => top10Query.refetch()} />;
-    return <ErrorState message={(top10Query.error as Error).message} onRetry={() => top10Query.refetch()} />;
+    if (offline) return <OfflineState message={(top10Query.error as Error).message} onRetry={handleRefresh} />;
+    return <ErrorState message={(top10Query.error as Error).message} onRetry={handleRefresh} />;
   }
 
   return (
@@ -38,37 +78,12 @@ export function Top10Screen() {
       ) : null}
       <FlatList
         data={top10Query.data ?? []}
-        keyExtractor={(item) => `${item.id}:${item.rank}`}
-        refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={() => top10Query.refetch()} />}
-        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={() => top10Query.refetch()} />}
-        renderItem={({ item }: { item: TopItem }) => (
-          <Pressable
-            onPress={() =>
-              openGiveawaySelection(item, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }), {
-                missingDetailTitle: 'Kein Detail verfügbar',
-                missingDetailMessage: 'Für diesen Eintrag ist aktuell weder Detailseite noch Link vorhanden.'
-              })
-            }
-            style={styles.item}
-            accessibilityRole="button"
-            hitSlop={6}
-          >
-
-            <Text style={styles.rank}>#{item.rank}</Text>
-            <View style={styles.textContainer}>
-              <Text style={styles.title}>{item.title}</Text>
-              {item.teaser ? <Text style={styles.teaser}>{item.teaser}</Text> : null}
-              {!item.giveawayId && !item.giveawaySlug && item.sourceUrl ? (
-                <Text style={styles.hint}>Öffnet direkt den externen Gewinnspiel-Link.</Text>
-              ) : null}
-              {item.sourceUrl ? (
-                <Text style={styles.linkHint} numberOfLines={1}>
-                  {item.sourceUrl}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        getItemLayout={getEstimatedItemLayout(ESTIMATED_ITEM_HEIGHT)}
+        {...LIST_BATCHING}
+        refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={handleRefresh} />}
+        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={handleRefresh} />}
       />
       {top10Query.isFetching && !top10Query.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>

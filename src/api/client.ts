@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
 import { ENV } from '../config/env';
 
@@ -33,10 +33,20 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasHtmlLikeContent(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return normalized.includes('<html') || normalized.includes('<!doctype') || normalized.includes('<?xml');
+}
+
+function getContentType(headers: AxiosResponseHeaders | RawAxiosResponseHeaders | undefined): string {
+  const value = headers?.['content-type'];
+  return typeof value === 'string' ? value.toLowerCase() : '';
+}
+
 function enrichHttpError(error: AxiosError): AxiosError {
   const status = error.response?.status;
   const payload = error.response?.data;
-  const payloadIsHtml = typeof payload === 'string' && payload.toLowerCase().includes('<html');
+  const payloadIsHtml = typeof payload === 'string' && hasHtmlLikeContent(payload);
 
   if (!error.response) {
     error.message = 'Netzwerkfehler: GewinnHai ist aktuell nicht erreichbar.';
@@ -82,14 +92,23 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => {
     const data = response.data;
+    const contentType = getContentType(response.headers);
 
-    if (typeof data === 'string' && data.toLowerCase().includes('<html')) {
+    if (typeof data === 'string' && hasHtmlLikeContent(data)) {
       return Promise.reject(
         enrichHttpError(
           new AxiosError('Unerwartete HTML-Antwort vom Server erhalten.', 'ERR_BAD_RESPONSE', response.config, response.request, {
             ...response,
             data
           })
+        )
+      );
+    }
+
+    if (contentType.includes('text/html') || contentType.includes('text/xml') || contentType.includes('application/xml')) {
+      return Promise.reject(
+        enrichHttpError(
+          new AxiosError('Unerwarteter Response-Content-Type erhalten.', 'ERR_BAD_RESPONSE', response.config, response.request, response)
         )
       );
     }

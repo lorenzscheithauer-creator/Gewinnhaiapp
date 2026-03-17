@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 interface UseDataQueryOptions<TData> {
@@ -13,15 +12,13 @@ interface UseDataQueryOptions<TData> {
 const DEFAULT_BACKGROUND_REFRESH_MS = 5 * 60_000;
 
 export function useDataQuery<TData>(options: UseDataQueryOptions<TData>) {
-  const queryKey = useMemo(() => options.queryKey, [options.queryKey]);
-
   return useQuery({
-    queryKey,
+    queryKey: options.queryKey,
     queryFn: options.queryFn,
     enabled: options.enabled ?? true,
     staleTime: options.staleTime,
     gcTime: options.gcTime,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchInterval: options.refetchInterval ?? DEFAULT_BACKGROUND_REFRESH_MS,

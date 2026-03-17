@@ -621,6 +621,8 @@ export async function fetchCategories(): Promise<Category[]> {
 
 export async function fetchTop10(): Promise<TopItem[]> {
   try {
+    const wpTop10TagId = await resolveWpTagIdBySlug('top10');
+
     const list = await tryEndpoints(ENV.endpoints.top10, async (endpoint) => {
       const requestParams = endpoint.includes('/wp-json/')
         ? {
@@ -628,10 +630,7 @@ export async function fetchTop10(): Promise<TopItem[]> {
             _embed: 1,
             orderby: 'date',
             order: 'desc',
-            ...(await (async () => {
-              const tagId = await resolveWpTagIdBySlug('top10');
-              return tagId ? { tags: tagId } : { search: 'top10' };
-            })())
+            ...(wpTop10TagId ? { tags: wpTop10TagId } : { search: 'top10' })
           }
         : undefined;
       const { data } = await apiClient.get<ApiTopListResponse>(endpoint, { params: requestParams });

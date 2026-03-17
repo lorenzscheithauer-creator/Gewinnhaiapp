@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
+
 import { ENV } from '../config/env';
 import { giveawaysRepository } from '../data/giveawaysRepository';
 import { useDataQuery } from './useDataQuery';
 
 export function useGiveawayDetail(idOrSlug: string) {
-  const normalized = idOrSlug.trim();
+  const normalized = useMemo(() => idOrSlug.trim(), [idOrSlug]);
 
   return useDataQuery({
     queryKey: ['giveaway-detail', normalized],
