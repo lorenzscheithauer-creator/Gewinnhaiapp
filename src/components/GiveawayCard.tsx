@@ -17,7 +17,13 @@ function GiveawayCardComponent({ item, onPress }: GiveawayCardProps) {
 
   return (
     <Pressable style={styles.card} onPress={handlePress} accessibilityRole="button" hitSlop={6}>
-      {item.imageUrl && !imageFailed ? <Image source={{ uri: item.imageUrl }} style={styles.image} onError={() => setImageFailed(true)} /> : null}
+      {item.imageUrl && !imageFailed ? (
+        <Image source={{ uri: item.imageUrl }} style={styles.image} onError={() => setImageFailed(true)} />
+      ) : (
+        <View style={styles.fallbackImage}>
+          <Text style={styles.fallbackLabel}>🦈 GewinnHai</Text>
+        </View>
+      )}
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.teaser} numberOfLines={3}>
@@ -31,28 +37,11 @@ function GiveawayCardComponent({ item, onPress }: GiveawayCardProps) {
 export const GiveawayCard = memo(GiveawayCardComponent);
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e6e6e6'
-  },
-  image: {
-    width: '100%',
-    height: 160
-  },
-  content: {
-    padding: 12,
-    gap: 6
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  teaser: {
-    color: '#555',
-    lineHeight: 20
-  }
+  card: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 14, borderWidth: 1, borderColor: '#d8e4ee' },
+  image: { width: '100%', height: 170 },
+  fallbackImage: { width: '100%', height: 110, backgroundColor: '#0f355a', alignItems: 'center', justifyContent: 'center' },
+  fallbackLabel: { color: '#9adfff', fontWeight: '700' },
+  content: { padding: 14, gap: 8 },
+  title: { fontSize: 17, fontWeight: '800', color: '#0c1d34' },
+  teaser: { color: '#54677a', lineHeight: 20 }
 });

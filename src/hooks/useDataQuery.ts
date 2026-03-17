@@ -24,6 +24,6 @@ export function useDataQuery<TData>(options: UseDataQueryOptions<TData>) {
     refetchInterval: options.refetchInterval ?? DEFAULT_BACKGROUND_REFRESH_MS,
     refetchIntervalInBackground: false,
     placeholderData: (previousData) => previousData,
-    networkMode: 'offlineFirst'
+    networkMode: 'online'
   });
 }

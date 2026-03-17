@@ -3,18 +3,19 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useCallback } from 'react';
 
+import { BrandHeader } from '../../components/BrandHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useCategories } from '../../hooks/useGiveaways';
 import { Category } from '../../types/models';
-import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
+import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { MainTabParamList } from '../types';
 import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
+import { BRAND } from '../../theme';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Categories'>;
-
 const ESTIMATED_ITEM_HEIGHT = 104;
 
 export function CategoriesScreen() {
@@ -22,7 +23,7 @@ export function CategoriesScreen() {
   const navigation = useNavigation<NavigationProp>();
 
   useRefetchOnFocus(categoriesQuery.refetch);
-  const offline = isOfflineError(categoriesQuery.error);
+  const errorInfo = classifyQueryError(categoriesQuery.error);
 
   const handleRefresh = useCallback(() => {
     void categoriesQuery.refetch();
@@ -32,12 +33,7 @@ export function CategoriesScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Category }) => (
-      <Pressable
-        onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })}
-        style={styles.item}
-        accessibilityRole="button"
-        hitSlop={6}
-      >
+      <Pressable onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })} style={styles.item}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.subtitle}>Tippe, um gefilterte Gewinnspiele anzuzeigen.</Text>
       </Pressable>
@@ -45,64 +41,33 @@ export function CategoriesScreen() {
     [navigation]
   );
 
-  if (categoriesQuery.isPending && !Array.isArray(categoriesQuery.data)) {
-    return <LoadingState label="Kategorien werden geladen…" />;
-  }
-
+  if (categoriesQuery.isPending && !Array.isArray(categoriesQuery.data)) return <LoadingState label="Kategorien werden geladen…" />;
   if (categoriesQuery.isError && !Array.isArray(categoriesQuery.data)) {
-    if (offline) return <OfflineState message={(categoriesQuery.error as Error).message} onRetry={handleRefresh} />;
-    return <ErrorState message={(categoriesQuery.error as Error).message} onRetry={handleRefresh} />;
+    if (errorInfo.kind === 'offline') return <OfflineState message={errorInfo.message} onRetry={handleRefresh} />;
+    return <ErrorState title={errorInfo.title} message={errorInfo.message} onRetry={handleRefresh} />;
   }
 
   return (
     <View style={styles.container}>
-      {categoriesQuery.isError && (categoriesQuery.data?.length ?? 0) > 0 ? (
-        <Text style={styles.inlineWarning}>Offline-Modus: Kategorien stammen aus zuletzt geladenen Live-Daten.</Text>
-      ) : null}
+      <BrandHeader title="Kategorien" subtitle="Finde Gewinnspiele nach Themen." />
       <FlatList
         data={categoriesQuery.data ?? []}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         getItemLayout={getEstimatedItemLayout(ESTIMATED_ITEM_HEIGHT)}
         {...LIST_BATCHING}
-        refreshControl={<RefreshControl refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending} onRefresh={handleRefresh} tintColor="#fff" />}
         ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." onRetry={handleRefresh} />}
       />
-      {categoriesQuery.isFetching && !categoriesQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
+      {categoriesQuery.isFetching && !categoriesQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} color="#fff" /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fb',
-    padding: 12
-  },
-  item: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    borderColor: '#e6e6e6',
-    borderWidth: 1,
-    marginBottom: 10
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  subtitle: {
-    marginTop: 4,
-    color: '#666'
-  },
-  inlineWarning: {
-    marginBottom: 10,
-    color: '#9b6a00',
-    fontSize: 12
-  },
-  fetchingIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 12
-  }
+  container: { flex: 1, backgroundColor: BRAND.colors.bg, padding: 12 },
+  item: { backgroundColor: '#fff', borderRadius: 14, padding: 16, borderColor: '#d8e4ee', borderWidth: 1, marginBottom: 10 },
+  title: { fontSize: 16, fontWeight: '700', color: '#102a44' },
+  subtitle: { marginTop: 4, color: '#5f6f82' },
+  fetchingIndicator: { position: 'absolute', top: 8, right: 12 }
 });

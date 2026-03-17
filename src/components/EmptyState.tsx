@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BRAND } from '../theme';
+
 interface EmptyStateProps {
   title: string;
   message: string;
@@ -21,28 +23,9 @@ export function EmptyState({ title, message, onRetry }: EmptyStateProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    gap: 10,
-    alignItems: 'center'
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700'
-  },
-  message: {
-    textAlign: 'center',
-    color: '#555'
-  },
-  button: {
-    marginTop: 6,
-    backgroundColor: '#0a7ea4',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontWeight: '600'
-  }
+  container: { padding: 24, gap: 10, alignItems: 'center', backgroundColor: '#0f355a', borderRadius: 16, borderWidth: 1, borderColor: '#1e4f7a' },
+  title: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  message: { textAlign: 'center', color: '#cce7ff' },
+  button: { marginTop: 6, backgroundColor: BRAND.colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  buttonLabel: { color: '#052338', fontWeight: '700' }
 });

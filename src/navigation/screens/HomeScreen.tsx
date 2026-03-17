@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
 
+import { BrandHeader } from '../../components/BrandHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { GiveawayCard } from '../../components/GiveawayCard';
@@ -13,10 +13,11 @@ import { OfflineState } from '../../components/OfflineState';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
-import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
+import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { MainTabParamList, RootStackParamList } from '../types';
 import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
+import { BRAND } from '../../theme';
 
 type HomeRouteProp = RouteProp<MainTabParamList, 'Home'>;
 type DetailNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -39,7 +40,7 @@ export function HomeScreen() {
   useRefetchOnFocus(giveawaysQuery.refetch);
 
   const data = giveawaysQuery.data ?? [];
-  const offline = isOfflineError(giveawaysQuery.error);
+  const errorInfo = classifyQueryError(giveawaysQuery.error);
 
   const handleRefresh = useCallback(() => {
     void giveawaysQuery.refetch();
@@ -56,11 +57,7 @@ export function HomeScreen() {
     [navigation]
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: Giveaway }) => <GiveawayCard item={item} onPress={handlePressItem} />,
-    [handlePressItem]
-  );
-
+  const renderItem = useCallback(({ item }: { item: Giveaway }) => <GiveawayCard item={item} onPress={handlePressItem} />, [handlePressItem]);
   const keyExtractor = useCallback((item: Giveaway) => `${item.id}:${item.slug}`, []);
 
   const emptyComponent = useMemo(
@@ -73,13 +70,13 @@ export function HomeScreen() {
   }
 
   if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data)) {
-    if (offline) return <OfflineState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
-    return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
+    if (errorInfo.kind === 'offline') return <OfflineState message={errorInfo.message} onRetry={handleRefresh} />;
+    return <ErrorState title={errorInfo.title} message={errorInfo.message} onRetry={handleRefresh} />;
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headline}>Aktuelle Gewinnspiele</Text>
+      <BrandHeader title="Deine Gewinnspiel-Übersicht" subtitle="Neue Chancen, täglich aktualisiert." />
       {categoryTitle ? (
         <View style={styles.filterInfoContainer}>
           <Text style={styles.filterInfo}>Filter aktiv: {categoryTitle}</Text>
@@ -89,26 +86,8 @@ export function HomeScreen() {
         </View>
       ) : null}
       <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Suche Gewinnspiele"
-          value={query}
-          onChangeText={setQuery}
-          style={styles.search}
-          autoCapitalize="none"
-          returnKeyType="search"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-        {query.length > 0 ? (
-          <Pressable style={styles.clearButton} onPress={() => setQuery('')} accessibilityRole="button" hitSlop={6}>
-            <Text style={styles.clearLabel}>Reset</Text>
-          </Pressable>
-        ) : null}
+        <TextInput placeholder="Suche Gewinnspiele" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" returnKeyType="search" />
       </View>
-      {query.trim().length === 1 ? <Text style={styles.inlineHint}>Mindestens 2 Zeichen für die Suche eingeben.</Text> : null}
-      {giveawaysQuery.isError && data.length > 0 ? (
-        <Text style={styles.inlineWarning}>Offline-Modus: Es werden zuletzt geladene Live-Daten angezeigt.</Text>
-      ) : null}
       <FlatList
         data={data}
         keyExtractor={keyExtractor}
@@ -116,74 +95,20 @@ export function HomeScreen() {
         renderItem={renderItem}
         getItemLayout={getEstimatedItemLayout(ESTIMATED_CARD_HEIGHT)}
         {...LIST_BATCHING}
-        refreshControl={<RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={handleRefresh} tintColor="#fff" />}
         ListEmptyComponent={emptyComponent}
-        ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} /> : null}
+        ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} color="#fff" /> : null}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fb',
-    padding: 12
-  },
-  headline: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 10
-  },
-  filterInfoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8
-  },
-  filterInfo: {
-    fontWeight: '600',
-    color: '#0a7ea4'
-  },
-  filterAction: {
-    color: '#0a7ea4',
-    textDecorationLine: 'underline'
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12
-  },
-  search: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    paddingHorizontal: 12,
-    paddingVertical: 10
-  },
-  clearButton: {
-    backgroundColor: '#dfeef3',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8
-  },
-  clearLabel: {
-    color: '#0a7ea4',
-    fontWeight: '600'
-  },
-  inlineHint: {
-    marginBottom: 10,
-    color: '#50636d',
-    fontSize: 12
-  },
-  inlineWarning: {
-    marginBottom: 10,
-    color: '#9b6a00',
-    fontSize: 12
-  },
-  listLoader: {
-    marginVertical: 12
-  }
+  container: { flex: 1, backgroundColor: BRAND.colors.bg, padding: 12 },
+  filterInfoContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, backgroundColor: '#0f355a', padding: 10, borderRadius: 12 },
+  filterInfo: { fontWeight: '700', color: '#9adfff' },
+  filterAction: { color: '#fff', textDecorationLine: 'underline' },
+  searchRow: { marginBottom: 12 },
+  search: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: BRAND.colors.border, paddingHorizontal: 12, paddingVertical: 10 },
+  listLoader: { marginVertical: 12 }
 });
