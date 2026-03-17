@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 
 import { apiClient } from './client';
 import { ApiCategoryListResponse, ApiGiveawayDetailResponse, ApiGiveawayListResponse, ApiTopListResponse } from '../types/api';
@@ -15,7 +15,8 @@ const CACHE_TTL = {
   top10: 15 * 60_000,
   giveawayDetail: 30 * 60_000,
   top10TagId: 24 * 60 * 60_000,
-  feedSnapshot: 12 * 60 * 60_000
+  feedSnapshot: 12 * 60 * 60_000,
+  rssGiveaways: 10 * 60_000
 };
 
 const CACHE_KEYS = {
@@ -24,8 +25,11 @@ const CACHE_KEYS = {
   top10: 'cache:top10',
   top10TagId: 'cache:top10-tag-id',
   feedSnapshot: 'cache:feed-snapshot',
+  rssGiveaways: 'cache:rss-giveaways',
   giveawayDetail: (idOrSlug: string) => `cache:giveaway-detail:${idOrSlug}`
 };
+
+const RSS_FEED_ENDPOINTS = ['/feed/', '/gewinnspiel/feed/'];
 
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) {
@@ -133,36 +137,6 @@ function normalizeEndpoint(endpoint: string): string {
   return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 }
 
-function buildLegacyGiveawayParams(params?: SearchParams): Record<string, string> | undefined {
-  if (!params) return undefined;
-
-  const query = params.query?.trim();
-  const categoryId = params.categoryId?.trim();
-  const categorySlug = params.categorySlug?.trim();
-
-  return {
-    ...(query
-      ? {
-          q: query,
-          query,
-          search: query
-        }
-      : {}),
-    ...(categoryId
-      ? {
-          category: categoryId,
-          category_id: categoryId
-        }
-      : {}),
-    ...(categorySlug
-      ? {
-          category_slug: categorySlug,
-          categorySlug
-        }
-      : {})
-  };
-}
-
 function buildWpPostParams(params?: SearchParams): Record<string, string | number> {
   const query = params?.query?.trim();
   const categoryId = params?.categoryId?.trim();
@@ -183,6 +157,102 @@ function parseWpDetailId(idOrSlug: string): string {
   const normalized = idOrSlug.trim().replace(/^\/+|\/+$/g, '').split('?')[0];
   if (/^\d+$/.test(normalized)) return `${normalized}?_embed=1`;
   return `?slug=${encodeURIComponent(normalized)}&_embed=1`;
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+}
+
+function stripHtml(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
+}
+
+function parseRssItems(xml: string): Giveaway[] {
+  const items = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi));
+
+  return sanitizeGiveawayList(
+    items
+      .map((match) => {
+        const itemXml = match[1];
+        const title = itemXml.match(/<title>([\s\S]*?)<\/title>/i)?.[1];
+        const link = itemXml.match(/<link>([\s\S]*?)<\/link>/i)?.[1];
+        const description = itemXml.match(/<description>([\s\S]*?)<\/description>/i)?.[1];
+        const guid = itemXml.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1];
+        const pubDate = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1];
+        const category = itemXml.match(/<category>([\s\S]*?)<\/category>/i)?.[1];
+
+        const sourceUrl = decodeHtmlEntities((link ?? guid ?? '').trim());
+        const slug = extractSlugFromUrl(sourceUrl);
+        const normalizedTitle = stripHtml(title ?? '');
+        const normalizedDescription = stripHtml(description ?? '');
+
+        return {
+          id: slug ?? sourceUrl ?? normalizedTitle,
+          slug: slug ?? sourceUrl,
+          title: normalizedTitle,
+          teaser: normalizedDescription,
+          description: normalizedDescription,
+          sourceUrl,
+          categoryLabel: stripHtml(category ?? '') || undefined,
+          expiresAt: (() => {
+            const parsedDate = pubDate ? new Date(pubDate) : null;
+            return parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : undefined;
+          })()
+        } as Giveaway;
+      })
+      .filter((item) => Boolean(item.id && item.title))
+  );
+}
+
+async function fetchRssGiveaways(): Promise<Giveaway[]> {
+  const cached = await getCache<Giveaway[]>(CACHE_KEYS.rssGiveaways);
+  if (cached?.length) {
+    return cached;
+  }
+
+  let lastError: unknown;
+
+  for (const endpoint of RSS_FEED_ENDPOINTS) {
+    try {
+      log('debug', 'Trying RSS fallback endpoint.', { endpoint });
+      const response = await axios.get<string>(`${ENV.apiBaseUrl}${endpoint}`, {
+        timeout: ENV.apiTimeoutMs,
+        headers: { Accept: 'application/rss+xml, application/xml, text/xml;q=0.9' },
+        responseType: 'text'
+      });
+
+      if (response.status >= 400) {
+        throw new Error(`RSS endpoint failed (${response.status}).`);
+      }
+
+      const parsed = parseRssItems(response.data);
+      if (!parsed.length) {
+        throw new Error('RSS-Feed lieferte keine verwertbaren Daten.');
+      }
+
+      await setCache(CACHE_KEYS.rssGiveaways, parsed, { ttlMs: CACHE_TTL.rssGiveaways });
+      log('info', 'Giveaways loaded via RSS fallback.', { endpoint, count: parsed.length });
+      return parsed;
+    } catch (error) {
+      lastError = error;
+      const status = error instanceof AxiosError ? error.response?.status : undefined;
+      log('warn', 'RSS fallback endpoint failed.', {
+        endpoint,
+        status,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  if (cached?.length) return cached;
+  throw lastError ?? new Error('RSS-Fallback fehlgeschlagen.');
 }
 
 function uniqueById<T extends { id: string }>(items: T[]): T[] {
@@ -536,7 +606,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 
   try {
     const list = await tryEndpoints(ENV.endpoints.giveaways, async (endpoint) => {
-      const requestParams = endpoint.includes('/wp-json/') ? buildWpPostParams(normalizedParams) : buildLegacyGiveawayParams(normalizedParams);
+      const requestParams = buildWpPostParams(normalizedParams);
       const { data } = await apiClient.get<ApiGiveawayListResponse>(endpoint, { params: requestParams });
       ensureApiPayloadValid(data);
       const mapped = extractList(data, ['giveaways', 'items', 'entries', 'data']).map(mapGiveaway);
@@ -562,6 +632,24 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 
     return list;
   } catch (err) {
+    log('warn', 'Primary giveaways endpoints failed. Trying RSS fallback.', {
+      cacheKey,
+      message: err instanceof Error ? err.message : String(err)
+    });
+
+    try {
+      const rssGiveaways = await fetchRssGiveaways();
+      const filteredRss = applyLocalFilters(rssGiveaways, normalizedParams);
+      if (filteredRss.length || hasActiveSearchParams(normalizedParams)) {
+        await setCache(cacheKey, filteredRss, { ttlMs: CACHE_TTL.giveaways });
+        return filteredRss;
+      }
+    } catch (rssError) {
+      log('warn', 'RSS fallback for giveaways failed.', {
+        message: rssError instanceof Error ? rssError.message : String(rssError)
+      });
+    }
+
     const fromBaseCache = await fallbackGiveawaysFromBaseCache(normalizedParams);
     if (fromBaseCache) return fromBaseCache;
 
