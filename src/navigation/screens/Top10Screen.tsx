@@ -3,19 +3,20 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback } from 'react';
 
+import { BrandHeader } from '../../components/BrandHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useTop10 } from '../../hooks/useGiveaways';
 import { TopItem } from '../../types/models';
-import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
+import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { RootStackParamList } from '../types';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
+import { BRAND } from '../../theme';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
 const ESTIMATED_ITEM_HEIGHT = 140;
 
 export function Top10Screen() {
@@ -23,7 +24,7 @@ export function Top10Screen() {
   const navigation = useNavigation<NavigationProp>();
 
   useRefetchOnFocus(top10Query.refetch);
-  const offline = isOfflineError(top10Query.error);
+  const errorInfo = classifyQueryError(top10Query.error);
 
   const handleRefresh = useCallback(() => {
     void top10Query.refetch();
@@ -41,103 +42,46 @@ export function Top10Screen() {
           })
         }
         style={styles.item}
-        accessibilityRole="button"
-        hitSlop={6}
       >
         <Text style={styles.rank}>#{item.rank}</Text>
         <View style={styles.textContainer}>
           <Text style={styles.title}>{item.title}</Text>
           {item.teaser ? <Text style={styles.teaser}>{item.teaser}</Text> : null}
-          {!item.giveawayId && !item.giveawaySlug && item.sourceUrl ? (
-            <Text style={styles.hint}>Öffnet direkt den externen Gewinnspiel-Link.</Text>
-          ) : null}
-          {item.sourceUrl ? (
-            <Text style={styles.linkHint} numberOfLines={1}>
-              {item.sourceUrl}
-            </Text>
-          ) : null}
         </View>
       </Pressable>
     ),
     [navigation]
   );
 
-  if (top10Query.isPending && !Array.isArray(top10Query.data)) {
-    return <LoadingState label="Top10 wird geladen…" />;
-  }
-
+  if (top10Query.isPending && !Array.isArray(top10Query.data)) return <LoadingState label="Top10 wird geladen…" />;
   if (top10Query.isError && !Array.isArray(top10Query.data)) {
-    if (offline) return <OfflineState message={(top10Query.error as Error).message} onRetry={handleRefresh} />;
-    return <ErrorState message={(top10Query.error as Error).message} onRetry={handleRefresh} />;
+    if (errorInfo.kind === 'offline') return <OfflineState message={errorInfo.message} onRetry={handleRefresh} />;
+    return <ErrorState title={errorInfo.title} message={errorInfo.message} onRetry={handleRefresh} />;
   }
 
   return (
     <View style={styles.container}>
-      {top10Query.isError && (top10Query.data?.length ?? 0) > 0 ? (
-        <Text style={styles.inlineWarning}>Offline-Modus: Ranking stammt aus zuletzt geladenen Live-Daten.</Text>
-      ) : null}
+      <BrandHeader title="Top 10" subtitle="Die beliebtesten Gewinnchancen der Community." />
       <FlatList
         data={top10Query.data ?? []}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         getItemLayout={getEstimatedItemLayout(ESTIMATED_ITEM_HEIGHT)}
         {...LIST_BATCHING}
-        refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={handleRefresh} />}
-        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird automatisch befüllt, sobald Daten verfügbar sind." onRetry={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={top10Query.isRefetching && !top10Query.isPending} onRefresh={handleRefresh} tintColor="#fff" />}
+        ListEmptyComponent={<EmptyState title="Noch keine Top10" message="Die Liste wird befüllt, sobald Daten verfügbar sind." onRetry={handleRefresh} />}
       />
-      {top10Query.isFetching && !top10Query.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
+      {top10Query.isFetching && !top10Query.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} color="#fff" /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fb',
-    padding: 12
-  },
-  item: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e6e6e6',
-    padding: 14,
-    marginBottom: 10,
-    gap: 12
-  },
-  rank: {
-    fontWeight: '800',
-    fontSize: 18,
-    color: '#0a7ea4'
-  },
-  textContainer: {
-    flex: 1,
-    gap: 4
-  },
-  title: {
-    fontWeight: '700',
-    fontSize: 16
-  },
-  teaser: {
-    color: '#666'
-  },
-  hint: {
-    color: '#88949c',
-    fontSize: 12
-  },
-  linkHint: {
-    color: '#607d8b',
-    fontSize: 11
-  },
-  inlineWarning: {
-    marginBottom: 10,
-    color: '#9b6a00',
-    fontSize: 12
-  },
-  fetchingIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 12
-  }
+  container: { flex: 1, backgroundColor: BRAND.colors.bg, padding: 12 },
+  item: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#d8e4ee', padding: 14, marginBottom: 10, gap: 12 },
+  rank: { fontWeight: '800', fontSize: 20, color: '#008fb2' },
+  textContainer: { flex: 1, gap: 4 },
+  title: { fontWeight: '700', fontSize: 16, color: '#102a44' },
+  teaser: { color: '#5f6f82' },
+  fetchingIndicator: { position: 'absolute', top: 8, right: 12 }
 });

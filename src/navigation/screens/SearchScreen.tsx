@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Tex
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { BrandHeader } from '../../components/BrandHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { GiveawayCard } from '../../components/GiveawayCard';
@@ -11,13 +12,13 @@ import { OfflineState } from '../../components/OfflineState';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
-import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
+import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { RootStackParamList } from '../types';
 import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
+import { BRAND } from '../../theme';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
-
 const ESTIMATED_CARD_HEIGHT = 250;
 
 export function SearchScreen() {
@@ -27,12 +28,9 @@ export function SearchScreen() {
   const shouldSearch = debouncedQuery.trim().length >= 2;
   const giveawaysQuery = useGiveaways({ query: debouncedQuery }, { enabled: shouldSearch });
   useRefetchOnFocus(giveawaysQuery.refetch, { enabled: shouldSearch, minIntervalMs: 10_000 });
-  const offline = isOfflineError(giveawaysQuery.error);
+  const errorInfo = classifyQueryError(giveawaysQuery.error);
 
-  const data = useMemo(() => {
-    if (!shouldSearch) return [];
-    return giveawaysQuery.data ?? [];
-  }, [giveawaysQuery.data, shouldSearch]);
+  const data = useMemo(() => (shouldSearch ? giveawaysQuery.data ?? [] : []), [giveawaysQuery.data, shouldSearch]);
 
   const handleRefresh = useCallback(() => {
     void giveawaysQuery.refetch();
@@ -45,48 +43,26 @@ export function SearchScreen() {
     [navigation]
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: Giveaway }) => <GiveawayCard item={item} onPress={handlePressItem} />,
-    [handlePressItem]
-  );
-
+  const renderItem = useCallback(({ item }: { item: Giveaway }) => <GiveawayCard item={item} onPress={handlePressItem} />, [handlePressItem]);
   const keyExtractor = useCallback((item: Giveaway) => `${item.id}:${item.slug}`, []);
 
-  if (giveawaysQuery.isPending && !Array.isArray(giveawaysQuery.data) && query.trim().length >= 2) {
-    return <LoadingState label="Suche wird geladen…" />;
-  }
-
-  if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data) && query.trim().length >= 2) {
-    if (offline) return <OfflineState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
-    return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
+  if (giveawaysQuery.isPending && !Array.isArray(giveawaysQuery.data) && shouldSearch) return <LoadingState label="Suche wird geladen…" />;
+  if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data) && shouldSearch) {
+    if (errorInfo.kind === 'offline') return <OfflineState message={errorInfo.message} onRetry={handleRefresh} />;
+    return <ErrorState title={errorInfo.title} message={errorInfo.message} onRetry={handleRefresh} />;
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headline}>Suche</Text>
+      <BrandHeader title="Suche" subtitle="Finde Gewinnspiele in Sekunden." />
       <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Mindestens 2 Zeichen eingeben"
-          value={query}
-          onChangeText={setQuery}
-          style={styles.search}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-        />
+        <TextInput placeholder="Mindestens 2 Zeichen eingeben" value={query} onChangeText={setQuery} style={styles.search} autoCapitalize="none" autoCorrect={false} />
         {query.length > 0 ? (
-          <Pressable style={styles.clearButton} onPress={() => setQuery('')} accessibilityRole="button" hitSlop={6}>
+          <Pressable style={styles.clearButton} onPress={() => setQuery('')}>
             <Text style={styles.clearLabel}>Reset</Text>
           </Pressable>
         ) : null}
       </View>
-
-      {query.trim().length === 1 ? <Text style={styles.inlineHint}>Bitte mindestens 2 Zeichen für die Live-Suche eingeben.</Text> : null}
-      {giveawaysQuery.isError && (giveawaysQuery.data?.length ?? 0) > 0 ? (
-        <Text style={styles.inlineWarning}>Suche zeigt gecachte Daten. Für aktuelle Treffer bitte erneut aktualisieren.</Text>
-      ) : null}
-
       <FlatList
         data={data}
         keyExtractor={keyExtractor}
@@ -94,67 +70,19 @@ export function SearchScreen() {
         renderItem={renderItem}
         getItemLayout={getEstimatedItemLayout(ESTIMATED_CARD_HEIGHT)}
         {...LIST_BATCHING}
-        refreshControl={<RefreshControl enabled={shouldSearch} refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={handleRefresh} />}
-        ListEmptyComponent={
-          query.trim().length < 2 ? (
-            <EmptyState title="Suche starten" message="Gib mindestens 2 Zeichen ein, um Live-Gewinnspiele zu suchen." />
-          ) : (
-            <EmptyState title="Keine Treffer" message="Keine passenden Gewinnspiele gefunden." onRetry={handleRefresh} />
-          )
-        }
-        ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} /> : null}
+        refreshControl={<RefreshControl enabled={shouldSearch} refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={handleRefresh} tintColor="#fff" />}
+        ListEmptyComponent={query.trim().length < 2 ? <EmptyState title="Suche starten" message="Gib mindestens 2 Zeichen ein." /> : <EmptyState title="Keine Treffer" message="Keine passenden Gewinnspiele gefunden." onRetry={handleRefresh} />}
+        ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} color="#fff" /> : null}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fb',
-    padding: 12
-  },
-  headline: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 10
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12
-  },
-  search: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    paddingHorizontal: 12,
-    paddingVertical: 10
-  },
-  clearButton: {
-    backgroundColor: '#dfeef3',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8
-  },
-  clearLabel: {
-    color: '#0a7ea4',
-    fontWeight: '600'
-  },
-  inlineHint: {
-    marginBottom: 10,
-    color: '#50636d',
-    fontSize: 12
-  },
-  inlineWarning: {
-    marginBottom: 10,
-    color: '#9b6a00',
-    fontSize: 12
-  },
-  listLoader: {
-    marginVertical: 12
-  }
+  container: { flex: 1, backgroundColor: BRAND.colors.bg, padding: 12 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  search: { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#d8e4ee', paddingHorizontal: 12, paddingVertical: 10 },
+  clearButton: { backgroundColor: '#0f355a', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  clearLabel: { color: '#9adfff', fontWeight: '700' },
+  listLoader: { marginVertical: 12 }
 });

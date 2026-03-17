@@ -14,6 +14,7 @@ import { Top10Screen } from './src/navigation/screens/Top10Screen';
 import { SearchScreen } from './src/navigation/screens/SearchScreen';
 import { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { log } from './src/utils/logger';
+import { BRAND } from './src/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +27,7 @@ const queryClient = new QueryClient({
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
       refetchOnReconnect: true,
       refetchOnWindowFocus: true,
-      networkMode: 'offlineFirst'
+      networkMode: 'online'
     }
   }
 });
@@ -64,7 +65,7 @@ const navTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#f7f9fb'
+    background: BRAND.colors.bg
   }
 };
 
@@ -73,8 +74,12 @@ function MainTabs() {
     <Tabs.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerTitleStyle: { fontWeight: '700' },
-        tabBarLabelStyle: { fontSize: 12 },
+        headerTitleStyle: { fontWeight: '700', color: '#fff' },
+        headerStyle: { backgroundColor: BRAND.colors.bgSoft },
+        tabBarStyle: { backgroundColor: BRAND.colors.bgSoft, borderTopColor: '#14456f' },
+        tabBarActiveTintColor: BRAND.colors.primary,
+        tabBarInactiveTintColor: '#9ac6e2',
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarHideOnKeyboard: true
       }}
     >
@@ -108,7 +113,7 @@ export default function App() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <NavigationContainer theme={navTheme} linking={linking} fallback={null}>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <Stack.Navigator>
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
             <Stack.Screen name="GiveawayDetail" component={GiveawayDetailScreen} options={{ title: 'Gewinnspiel' }} />

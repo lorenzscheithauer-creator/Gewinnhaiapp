@@ -1,22 +1,69 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { isAxiosError } from 'axios';
 import { useCallback, useRef } from 'react';
 
-const OFFLINE_MARKERS = [
-  'keine verbindung',
-  'netzwerkfehler',
-  'offline',
-  'network error',
-  'timeout',
-  'zeitüberschreitung',
-  'err_network',
-  'failed to fetch'
-];
+export type QueryErrorKind = 'offline' | 'api_unreachable' | 'api_error' | 'cors' | 'unknown';
 
-export function isOfflineError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
+interface QueryErrorInfo {
+  kind: QueryErrorKind;
+  title: string;
+  message: string;
+}
 
-  const message = error.message.toLowerCase();
-  return OFFLINE_MARKERS.some((marker) => message.includes(marker));
+function isNavigatorOnline(): boolean {
+  if (typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean') return true;
+  return navigator.onLine;
+}
+
+export function classifyQueryError(error: unknown): QueryErrorInfo {
+  const fallbackMessage = error instanceof Error ? error.message : 'Unerwarteter Fehler beim Laden der Daten.';
+
+  if (!isNavigatorOnline()) {
+    return {
+      kind: 'offline',
+      title: 'Du bist gerade offline',
+      message: 'Bitte prüfe deine Internetverbindung. Sobald du wieder online bist, laden wir neue Gewinnspiele.'
+    };
+  }
+
+  if (isAxiosError(error)) {
+    if (error.response) {
+      return {
+        kind: 'api_error',
+        title: `Serverantwort: ${error.response.status}`,
+        message: fallbackMessage
+      };
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      return {
+        kind: 'api_unreachable',
+        title: 'Server antwortet nicht rechtzeitig',
+        message: 'GewinnHai ist erreichbar, aber der Request lief in ein Timeout. Bitte gleich erneut versuchen.'
+      };
+    }
+
+    const msg = fallbackMessage.toLowerCase();
+    if (msg.includes('network error') || msg.includes('failed to fetch') || msg.includes('err_network')) {
+      return {
+        kind: 'cors',
+        title: 'Verbindung blockiert',
+        message: 'Die Anfrage wurde im Web-Kontext blockiert (z. B. CORS oder Gateway). Bitte später erneut versuchen.'
+      };
+    }
+
+    return {
+      kind: 'api_unreachable',
+      title: 'API aktuell nicht erreichbar',
+      message: fallbackMessage
+    };
+  }
+
+  return {
+    kind: 'unknown',
+    title: 'Fehler beim Laden',
+    message: fallbackMessage
+  };
 }
 
 interface RefetchOnFocusOptions {
