@@ -56,13 +56,13 @@ export const ENV = {
   apiBaseUrl: withNoTrailingSlash(publicApiBaseUrl || extras.apiBaseUrl || 'https://www.gewinnhai.de'),
   apiTimeoutMs: toSafeTimeoutMs(publicApiTimeoutMs || extras.apiTimeoutMs, 10000),
   endpoints: {
-    giveaways: normalizeEndpoints(publicGiveawaysEndpoints ?? extras.endpoints?.giveaways, ['/api/giveaways']),
+    giveaways: normalizeEndpoints(publicGiveawaysEndpoints ?? extras.endpoints?.giveaways, ['/wp-json/wp/v2/posts']),
     giveawayDetail: normalizeEndpoints(
       publicGiveawayDetailEndpoints ?? extras.endpoints?.giveawayDetail,
-      ['/api/giveaways/{idOrSlug}']
+      ['/wp-json/wp/v2/posts/{idOrSlug}']
     ),
-    categories: normalizeEndpoints(publicCategoriesEndpoints ?? extras.endpoints?.categories, ['/api/categories']),
-    top10: normalizeEndpoints(publicTop10Endpoints ?? extras.endpoints?.top10, ['/api/top10'])
+    categories: normalizeEndpoints(publicCategoriesEndpoints ?? extras.endpoints?.categories, ['/wp-json/wp/v2/categories']),
+    top10: normalizeEndpoints(publicTop10Endpoints ?? extras.endpoints?.top10, ['/wp-json/wp/v2/posts'])
   },
   query: {
     listStaleMs: 2 * 60_000,
