@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,8 +14,11 @@ import { Giveaway } from '../../types/models';
 import { isOfflineError, useRefetchOnFocus } from '../../utils/query';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
 import { RootStackParamList } from '../types';
+import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+
+const ESTIMATED_CARD_HEIGHT = 250;
 
 export function SearchScreen() {
   const navigation = useNavigation<Navigation>();
@@ -31,13 +34,31 @@ export function SearchScreen() {
     return giveawaysQuery.data ?? [];
   }, [giveawaysQuery.data, shouldSearch]);
 
+  const handleRefresh = useCallback(() => {
+    void giveawaysQuery.refetch();
+  }, [giveawaysQuery]);
+
+  const handlePressItem = useCallback(
+    (selected: Giveaway) => {
+      void openGiveawaySelection(selected, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }));
+    },
+    [navigation]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Giveaway }) => <GiveawayCard item={item} onPress={handlePressItem} />,
+    [handlePressItem]
+  );
+
+  const keyExtractor = useCallback((item: Giveaway) => `${item.id}:${item.slug}`, []);
+
   if (giveawaysQuery.isPending && !Array.isArray(giveawaysQuery.data) && query.trim().length >= 2) {
     return <LoadingState label="Suche wird geladen…" />;
   }
 
   if (giveawaysQuery.isError && !Array.isArray(giveawaysQuery.data) && query.trim().length >= 2) {
-    if (offline) return <OfflineState message={(giveawaysQuery.error as Error).message} onRetry={() => giveawaysQuery.refetch()} />;
-    return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={() => giveawaysQuery.refetch()} />;
+    if (offline) return <OfflineState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
+    return <ErrorState message={(giveawaysQuery.error as Error).message} onRetry={handleRefresh} />;
   }
 
   return (
@@ -68,25 +89,20 @@ export function SearchScreen() {
 
       <FlatList
         data={data}
-        keyExtractor={(item) => `${item.id}:${item.slug}`}
+        keyExtractor={keyExtractor}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl enabled={shouldSearch} refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={() => giveawaysQuery.refetch()} />}
+        renderItem={renderItem}
+        getItemLayout={getEstimatedItemLayout(ESTIMATED_CARD_HEIGHT)}
+        {...LIST_BATCHING}
+        refreshControl={<RefreshControl enabled={shouldSearch} refreshing={giveawaysQuery.isRefetching && !giveawaysQuery.isPending} onRefresh={handleRefresh} />}
         ListEmptyComponent={
           query.trim().length < 2 ? (
             <EmptyState title="Suche starten" message="Gib mindestens 2 Zeichen ein, um Live-Gewinnspiele zu suchen." />
           ) : (
-            <EmptyState title="Keine Treffer" message="Keine passenden Gewinnspiele gefunden." onRetry={() => giveawaysQuery.refetch()} />
+            <EmptyState title="Keine Treffer" message="Keine passenden Gewinnspiele gefunden." onRetry={handleRefresh} />
           )
         }
         ListFooterComponent={giveawaysQuery.isFetching && !giveawaysQuery.isRefetching ? <ActivityIndicator style={styles.listLoader} /> : null}
-        renderItem={({ item }: { item: Giveaway }) => (
-          <GiveawayCard
-            item={item}
-            onPress={(selected) =>
-              openGiveawaySelection(selected, (idOrSlug) => navigation.navigate('GiveawayDetail', { idOrSlug }))
-            }
-          />
-        )}
       />
     </View>
   );

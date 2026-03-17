@@ -1,6 +1,7 @@
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useCallback } from 'react';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -10,8 +11,11 @@ import { useCategories } from '../../hooks/useGiveaways';
 import { Category } from '../../types/models';
 import { useRefetchOnFocus, isOfflineError } from '../../utils/query';
 import { MainTabParamList } from '../types';
+import { getEstimatedItemLayout, LIST_BATCHING } from '../../utils/list';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Categories'>;
+
+const ESTIMATED_ITEM_HEIGHT = 104;
 
 export function CategoriesScreen() {
   const categoriesQuery = useCategories();
@@ -20,13 +24,34 @@ export function CategoriesScreen() {
   useRefetchOnFocus(categoriesQuery.refetch);
   const offline = isOfflineError(categoriesQuery.error);
 
+  const handleRefresh = useCallback(() => {
+    void categoriesQuery.refetch();
+  }, [categoriesQuery]);
+
+  const keyExtractor = useCallback((item: Category) => `${item.id}:${item.slug}`, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Category }) => (
+      <Pressable
+        onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })}
+        style={styles.item}
+        accessibilityRole="button"
+        hitSlop={6}
+      >
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.subtitle}>Tippe, um gefilterte Gewinnspiele anzuzeigen.</Text>
+      </Pressable>
+    ),
+    [navigation]
+  );
+
   if (categoriesQuery.isPending && !Array.isArray(categoriesQuery.data)) {
     return <LoadingState label="Kategorien werden geladen…" />;
   }
 
   if (categoriesQuery.isError && !Array.isArray(categoriesQuery.data)) {
-    if (offline) return <OfflineState message={(categoriesQuery.error as Error).message} onRetry={() => categoriesQuery.refetch()} />;
-    return <ErrorState message={(categoriesQuery.error as Error).message} onRetry={() => categoriesQuery.refetch()} />;
+    if (offline) return <OfflineState message={(categoriesQuery.error as Error).message} onRetry={handleRefresh} />;
+    return <ErrorState message={(categoriesQuery.error as Error).message} onRetry={handleRefresh} />;
   }
 
   return (
@@ -36,25 +61,12 @@ export function CategoriesScreen() {
       ) : null}
       <FlatList
         data={categoriesQuery.data ?? []}
-        keyExtractor={(item) => `${item.id}:${item.slug}`}
-        refreshControl={
-          <RefreshControl
-            refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending}
-            onRefresh={() => categoriesQuery.refetch()}
-          />
-        }
-        ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." onRetry={() => categoriesQuery.refetch()} />}
-        renderItem={({ item }: { item: Category }) => (
-          <Pressable
-            onPress={() => navigation.navigate('Home', { categoryId: item.id, categorySlug: item.slug, categoryTitle: item.title })}
-            style={styles.item}
-            accessibilityRole="button"
-            hitSlop={6}
-          >
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>Tippe, um gefilterte Gewinnspiele anzuzeigen.</Text>
-          </Pressable>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        getItemLayout={getEstimatedItemLayout(ESTIMATED_ITEM_HEIGHT)}
+        {...LIST_BATCHING}
+        refreshControl={<RefreshControl refreshing={categoriesQuery.isRefetching && !categoriesQuery.isPending} onRefresh={handleRefresh} />}
+        ListEmptyComponent={<EmptyState title="Keine Kategorien" message="Sobald das Backend Kategorien liefert, erscheinen sie hier." onRetry={handleRefresh} />}
       />
       {categoriesQuery.isFetching && !categoriesQuery.isRefetching ? <ActivityIndicator style={styles.fetchingIndicator} /> : null}
     </View>

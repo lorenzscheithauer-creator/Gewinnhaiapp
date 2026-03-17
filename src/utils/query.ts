@@ -1,7 +1,16 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useRef } from 'react';
 
-const OFFLINE_MARKERS = ['keine verbindung', 'netzwerkfehler', 'offline', 'network error', 'timeout', 'zeitüberschreitung'];
+const OFFLINE_MARKERS = [
+  'keine verbindung',
+  'netzwerkfehler',
+  'offline',
+  'network error',
+  'timeout',
+  'zeitüberschreitung',
+  'err_network',
+  'failed to fetch'
+];
 
 export function isOfflineError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;

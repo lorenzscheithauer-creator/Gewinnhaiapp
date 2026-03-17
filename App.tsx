@@ -3,7 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -34,11 +34,9 @@ const queryClient = new QueryClient({
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 
-
-function parseOnlineState(status: AppStateStatus): boolean {
+function parseForegroundState(status: AppStateStatus): boolean {
   return status === 'active';
 }
-
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['gewinnhai://', 'https://gewinnhai.de', 'https://www.gewinnhai.de'],
@@ -90,24 +88,18 @@ function MainTabs() {
 
 export default function App() {
   useEffect(() => {
-    onlineManager.setEventListener((setOnline) => {
-      const updateOnline = (state: AppStateStatus) => setOnline(state === 'active');
-      const sub = AppState.addEventListener('change', updateOnline);
-      updateOnline(AppState.currentState);
-      return () => sub.remove();
-    });
-
-    const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
-      const isActive = parseOnlineState(status);
+    const updateFocus = (status: AppStateStatus) => {
+      const isActive = parseForegroundState(status);
       focusManager.setFocused(isActive);
 
       if (isActive) {
         log('debug', 'App returned to foreground. Refetching active queries.');
-        queryClient.invalidateQueries({ refetchType: 'active' });
+        void queryClient.refetchQueries({ type: 'active' });
       }
-    });
+    };
 
-    queryClient.invalidateQueries();
+    updateFocus(AppState.currentState);
+    const subscription = AppState.addEventListener('change', updateFocus);
 
     return () => subscription.remove();
   }, []);
