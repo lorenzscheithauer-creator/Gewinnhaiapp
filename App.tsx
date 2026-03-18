@@ -14,6 +14,7 @@ import { HomeScreen } from './src/navigation/screens/HomeScreen';
 import { Top10Screen } from './src/navigation/screens/Top10Screen';
 import { SearchScreen } from './src/navigation/screens/SearchScreen';
 import { MainTabParamList, RootStackParamList } from './src/navigation/types';
+import { AppError, toAppError } from './src/utils/errors';
 import { log } from './src/utils/logger';
 import { BRAND } from './src/theme';
 
@@ -21,8 +22,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount: number, error: DefaultError) => {
-        const message = error instanceof Error ? error.message.toLowerCase() : '';
+        const normalizedError = toAppError(error);
+        const message = normalizedError.message.toLowerCase();
+
         if (message.includes('nicht gefunden')) return false;
+        if (normalizedError instanceof AppError && normalizedError.retriable === false) return false;
+
         return failureCount < 2;
       },
       retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 5000),

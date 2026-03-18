@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { isAxiosError } from 'axios';
 import { useCallback, useRef } from 'react';
+
+import { AppError, toAppError } from './errors';
 
 export type QueryErrorKind =
   | 'offline'
@@ -25,7 +26,8 @@ function isNavigatorOnline(): boolean {
 }
 
 export function classifyQueryError(error: unknown): QueryErrorInfo {
-  const fallbackMessage = error instanceof Error ? error.message : 'Unerwarteter Fehler beim Laden der Daten.';
+  const normalizedError = toAppError(error, 'Unerwarteter Fehler beim Laden der Daten.');
+  const fallbackMessage = normalizedError.message;
   const normalizedMessage = fallbackMessage.toLowerCase();
 
   if (!isNavigatorOnline()) {
@@ -36,8 +38,8 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
     };
   }
 
-  if (isAxiosError(error)) {
-    if (error.code === 'ECONNABORTED') {
+  if (normalizedError instanceof AppError) {
+    if (normalizedError.code === 'ECONNABORTED') {
       return {
         kind: 'timeout',
         title: 'PHP-API antwortet nicht rechtzeitig',
@@ -45,8 +47,8 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
       };
     }
 
-    if (error.response) {
-      if (error.response.status === 404) {
+    if (typeof normalizedError.status === 'number') {
+      if (normalizedError.status === 404) {
         return {
           kind: 'api_not_found',
           title: 'PHP-Endpunkt nicht gefunden (404)',
@@ -56,7 +58,7 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
 
       return {
         kind: 'api_error',
-        title: `PHP-API-Fehler: ${error.response.status}`,
+        title: `PHP-API-Fehler: ${normalizedError.status}`,
         message: fallbackMessage
       };
     }
@@ -69,11 +71,13 @@ export function classifyQueryError(error: unknown): QueryErrorInfo {
       };
     }
 
-    return {
-      kind: 'api_unreachable',
-      title: 'PHP-API aktuell nicht erreichbar',
-      message: fallbackMessage
-    };
+    if (normalizedError.endpoint) {
+      return {
+        kind: 'api_unreachable',
+        title: 'PHP-API aktuell nicht erreichbar',
+        message: fallbackMessage
+      };
+    }
   }
 
   if (normalizedMessage.includes('404') || normalizedMessage.includes('endpunkt wurde nicht gefunden')) {
