@@ -1,4 +1,5 @@
 import { ENV } from '../config/env';
+import { AppError, getSafeErrorContext } from './errors';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -15,18 +16,28 @@ function shouldLog(level: LogLevel): boolean {
   return levelRank[level] >= levelRank[configuredLevel];
 }
 
+function normalizePrimitive(value: unknown): string | number | boolean | null | undefined {
+  if (value == null) return value as null | undefined;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  return undefined;
+}
+
 function normalizeContext(context?: unknown): unknown {
   if (!context) return undefined;
 
-  if (context instanceof Error) {
-    return {
-      name: context.name,
-      message: context.message,
-      stack: context.stack
-    };
+  if (context instanceof Error || context instanceof AppError) {
+    return getSafeErrorContext(context);
   }
 
-  return context;
+  if (typeof context !== 'object') {
+    return normalizePrimitive(context);
+  }
+
+  const safeEntries = Object.entries(context as Record<string, unknown>)
+    .map(([key, value]) => [key, normalizePrimitive(value)])
+    .filter(([, value]) => value !== undefined);
+
+  return Object.fromEntries(safeEntries);
 }
 
 export function log(level: LogLevel, message: string, context?: unknown): void {

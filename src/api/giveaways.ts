@@ -1,4 +1,3 @@
-import { AxiosError } from 'axios';
 
 import { apiClient } from './client';
 import { extractDetail, extractList, mapCategory, mapGiveaway, mapTopItem } from './mappers';
@@ -7,6 +6,7 @@ import { Category, Giveaway, HomeData, HomeStats, SearchParams, TopItem } from '
 import { getCache, setCache } from '../utils/cache';
 import { ENV } from '../config/env';
 import { log } from '../utils/logger';
+import { getSafeErrorContext, toAppError } from '../utils/errors';
 
 const CACHE_TTL = {
   giveaways: 10 * 60_000,
@@ -68,18 +68,7 @@ function normalizeQuery(value: string | undefined): string | undefined {
 }
 
 function getApiErrorMessage(error: unknown): string {
-  if (error instanceof AxiosError) {
-    const apiData = error.response?.data as Record<string, unknown> | undefined;
-    const apiMessage = typeof apiData?.message === 'string' ? apiData.message : undefined;
-
-    if (apiMessage) return apiMessage;
-    if (!error.response) return 'Die GewinnHai-PHP-API ist aktuell nicht erreichbar.';
-    if (error.response.status === 404) return 'Der angeforderte PHP-Endpunkt wurde nicht gefunden (404).';
-    if (error.response.status >= 500) return 'Die GewinnHai-PHP-API meldet einen Serverfehler.';
-    return `PHP-API-Fehler (${error.response.status}).`;
-  }
-
-  return error instanceof Error ? error.message : 'Unbekannter PHP-API-Fehler.';
+  return toAppError(error, 'Unbekannter PHP-API-Fehler.').message;
 }
 
 function validateArrayPayload<T>(payload: T[], emptyMessage: string): T[] {
@@ -110,7 +99,7 @@ async function loadWithCache<T>(cacheKey: string, loader: () => Promise<T>): Pro
     const stale = await getCache<T>(cacheKey, { allowExpired: true });
     if (stale) return stale;
 
-    throw new Error(getApiErrorMessage(error));
+    throw toAppError(error, getApiErrorMessage(error));
   }
 }
 
@@ -302,13 +291,15 @@ async function requestItemVariant(params: Record<string, string>): Promise<Givea
 
     return validateObjectPayload(detail);
   } catch (error) {
-    if (error instanceof AxiosError && error.response?.status === 404) {
-      log('warn', 'Production /api/item.php variant returned 404.', { params });
+    const appError = toAppError(error);
+
+    if (appError.status === 404) {
+      log('warn', 'Production /api/item.php variant returned 404.', { ...params, status: appError.status });
       return undefined;
     }
 
-    log('warn', 'Production /api/item.php variant failed.', { params, error: getApiErrorMessage(error) });
-    throw error;
+    log('warn', 'Production /api/item.php variant failed.', { ...params, ...getSafeErrorContext(appError) });
+    throw appError;
   }
 }
 

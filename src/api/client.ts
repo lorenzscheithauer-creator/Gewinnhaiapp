@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 import { ENV } from '../config/env';
+import { toAppError } from '../utils/errors';
 
 const RETRY_ATTEMPTS = 1;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -56,6 +57,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(toAppError(error));
   }
 );
