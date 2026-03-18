@@ -87,7 +87,16 @@
       "edgeToEdgeEnabled": true
     },
     "extra": {
-      "apiBaseUrl": "https://api.gewinnhai.de",
+      "apiBaseUrl": "https://www.gewinnhai.de",
+      "apiEndpoints": {
+        "home": "/api/home.php",
+        "list": "/api/list.php",
+        "item": "/api/item.php",
+        "top10": "/api/top10.php",
+        "top3": "/api/top3.php",
+        "stats": "/api/stats.php",
+        "newest": "/api/newest.php"
+      },
       "apiTimeoutMs": 10000,
       "appEnv": "production"
     },
