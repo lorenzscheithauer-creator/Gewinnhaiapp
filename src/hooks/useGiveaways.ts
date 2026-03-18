@@ -16,12 +16,26 @@ export function useGiveaways(params?: SearchParams, options?: UseGiveawaysOption
   const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
 
   return useDataQuery({
-    queryKey: ['giveaways', normalizedParams],
+    queryKey: ['giveaways', { categoryId: normalizedParams?.categoryId, categorySlug: normalizedParams?.categorySlug }],
     queryFn: () => giveawaysRepository.list(normalizedParams),
     enabled: options?.enabled ?? true,
     staleTime: ENV.query.listStaleMs,
     gcTime: ENV.query.listGcMs,
-    refetchInterval: normalizedParams?.query ? false : BACKGROUND_REFRESH_MS
+    refetchInterval: BACKGROUND_REFRESH_MS
+  });
+}
+
+export function useSearchGiveaways(params: SearchParams, options?: UseGiveawaysOptions) {
+  const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
+  const normalizedQuery = normalizedParams?.query?.trim() ?? '';
+
+  return useDataQuery({
+    queryKey: ['search', normalizedParams],
+    queryFn: () => giveawaysRepository.search(normalizedParams ?? {}),
+    enabled: (options?.enabled ?? true) && normalizedQuery.length >= 2,
+    staleTime: 60_000,
+    gcTime: ENV.query.listGcMs,
+    refetchInterval: false
   });
 }
 

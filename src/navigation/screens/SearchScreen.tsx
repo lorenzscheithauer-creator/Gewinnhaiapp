@@ -10,7 +10,7 @@ import { GiveawayCard } from '../../components/GiveawayCard';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import { useGiveaways } from '../../hooks/useGiveaways';
+import { useSearchGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
 import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
@@ -26,7 +26,7 @@ export function SearchScreen() {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query, 350);
   const shouldSearch = debouncedQuery.trim().length >= 2;
-  const giveawaysQuery = useGiveaways({ query: debouncedQuery }, { enabled: shouldSearch });
+  const giveawaysQuery = useSearchGiveaways({ query: debouncedQuery }, { enabled: shouldSearch });
   useRefetchOnFocus(giveawaysQuery.refetch, { enabled: shouldSearch, minIntervalMs: 10_000 });
   const errorInfo = classifyQueryError(giveawaysQuery.error);
 

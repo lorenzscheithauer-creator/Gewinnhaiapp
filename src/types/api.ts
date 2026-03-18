@@ -1,27 +1,15 @@
+import { Category, Giveaway, TopItem } from './models';
+
 export type ApiEnvelope<T> = {
-  data?: T;
-  result?: T;
-  results?: T;
-  items?: T;
-  payload?: T;
-  response?: T;
+  ok?: boolean;
+  data: T;
+  meta?: Record<string, unknown>;
   message?: string;
   error?: string;
 };
 
-export type ApiListContainer = {
-  giveaways?: unknown[];
-  categories?: unknown[];
-  top10?: unknown[];
-  items?: unknown[];
-  entries?: unknown[];
-  data?: unknown[];
-};
-
-export type ApiGiveawayListResponse = ApiEnvelope<unknown[] | ApiListContainer>;
-
-export type ApiCategoryListResponse = ApiEnvelope<unknown[] | ApiListContainer>;
-
-export type ApiTopListResponse = ApiEnvelope<unknown[] | ApiListContainer>;
-
-export type ApiGiveawayDetailResponse = ApiEnvelope<unknown>;
+export type ApiGiveawayListResponse = ApiEnvelope<Giveaway[]>;
+export type ApiCategoryListResponse = ApiEnvelope<Category[]>;
+export type ApiTopListResponse = ApiEnvelope<TopItem[]>;
+export type ApiGiveawayDetailResponse = ApiEnvelope<Giveaway>;
+export type ApiSearchResponse = ApiEnvelope<Giveaway[]>;

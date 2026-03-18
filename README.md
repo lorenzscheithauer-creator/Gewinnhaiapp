@@ -1,213 +1,115 @@
-# Gewinnhai Mobile App (Android + iOS)
+# Gewinnhai Mobile App + App-API
 
-Diese Umsetzung liefert eine produktionsnahe Cross-Plattform-App (React Native + Expo) mit **einer Codebasis** für Android und iOS.
+Diese Codebasis trennt die **Mobile App** jetzt sauber von der **Website**. Die App konsumiert ausschließlich eine dedizierte **App-API** unter `/app-api/*`. Diese API liest serverseitig direkt aus der bestehenden GewinnHai-Datenbank und setzt die App-Modelle dort zusammen.
 
-> Hinweis zur Analyse: Im bereitgestellten Repository waren keine bestehenden Website-Dateien enthalten (nur `.git` + `.gitkeep`). Daher wurde die Anbindung so aufgebaut, dass eure vorhandenen Website-/Backend-APIs direkt verwendet werden können, ohne neue Datenbasis.
+## Neue Zielarchitektur
 
-## 1) Technische Architektur (empfohlen)
-
-### Ziele
-- Keine doppelte Content-Pflege
-- Live-Daten aus bestehendem Backend
-- Stabile, erweiterbare Struktur
-- App-Store-/Play-Store-fähige Grundlage
-
-### Architektur
-- **UI:** React Native (Expo), native Navigation (Stack + Tabs)
-- **Datenzugriff:** Axios API-Client gegen bestehende Endpunkte
-- **State/Sync:** TanStack React Query (Caching, Refetch, Error-Handling)
-- **Offline/Performance:** AsyncStorage-Fallback-Cache bei Netzfehlern
-- **Konfiguration:** zentrale API-Base-URL in `app.json` (`expo.extra.apiBaseUrl`)
+### Grundprinzip
+- **Quelle der Wahrheit bleibt die bestehende Datenbank.**
+- **Die Mobile App enthält keine DB-Zugangsdaten.**
+- **Die Mobile App spricht nur die dedizierte App-API an.**
+- **Die Website ist nicht mehr Transportweg für App-Daten.**
+- **Keine WordPress-REST- oder HTML-Fallbacks mehr in der App.**
 
 ### Datenfluss
-1. Screen triggert Query (`useGiveaways`, `useCategories`, `useTop10`)
-2. Service ruft bestehende API-Endpunkte auf (`/giveaways`, `/categories`, `/top10`)
-3. Antwort wird im Cache gespeichert
-4. Bei Verbindungsfehlern: letzter erfolgreicher Cache wird angezeigt
-
-So landen neue Inhalte, Kategorien und Gewinnspiele automatisch in der App, sobald sie im bestehenden Backend verfügbar sind.
-
----
-
-## 2) Ordnerstruktur
-
-```text
-.
-├── App.tsx
-├── app.json
-├── package.json
-├── src
-│   ├── api
-│   │   ├── client.ts
-│   │   └── giveaways.ts
-│   ├── components
-│   │   ├── ErrorState.tsx
-│   │   ├── GiveawayCard.tsx
-│   │   └── LoadingState.tsx
-│   ├── config
-│   │   └── env.ts
-│   ├── hooks
-│   │   ├── useGiveawayDetail.ts
-│   │   └── useGiveaways.ts
-│   ├── navigation
-│   │   ├── screens
-│   │   │   ├── CategoriesScreen.tsx
-│   │   │   ├── GiveawayDetailScreen.tsx
-│   │   │   ├── HomeScreen.tsx
-│   │   │   └── Top10Screen.tsx
-│   │   └── types.ts
-│   ├── types
-│   │   ├── api.ts
-│   │   └── models.ts
-│   └── utils
-│       └── cache.ts
-└── README.md
-```
+1. Die App ruft ausschließlich `/app-api/*` auf.
+2. Der App-API-Server verbindet sich serverseitig mit der bestehenden GewinnHai-Datenbank.
+3. Der Server liest Rohdaten aus den Tabellen, kombiniert Beiträge, Kategorien und Metadaten.
+4. Der Server liefert bereits app-gerechtes JSON zurück.
+5. Die App rendert diese Daten und cached nur Responses, nicht die Datenlogik.
 
 ---
 
-## 3) Funktional umgesetzt
+## App-Endpunkte
 
-- Startseite mit aktuellen Gewinnspielen
-- Kategorien
-- Detailseite je Gewinnspiel
-- Top10-Bereich
-- Suche (Textsuche auf Startseite via Query-Param)
-- Pull-to-refresh
-- Fehlerzustand bei Offline/Fehlern
-- Lokales Caching (Fallback)
+Die App erwartet jetzt genau diese Endpunkte:
 
----
+- `GET /app-api/giveaways`
+- `GET /app-api/giveaways/:id-or-slug`
+- `GET /app-api/categories`
+- `GET /app-api/top10`
+- `GET /app-api/search?q=...`
 
-## 4) Backend-Anbindung (bestehende Datenquelle)
-
-Die App ist auf Wiederverwendung bestehender APIs ausgelegt.
-
-### Erwartete Endpunkte
-- `GET /giveaways?query=...&categoryId=...`
-- `GET /giveaways/:idOrSlug`
-- `GET /categories`
-- `GET /top10`
-
-### Konfiguration
-In `app.json`:
-
-```json
-"extra": {
-  "apiBaseUrl": "https://www.gewinnhai.de",
-  "apiTimeoutMs": 10000
-}
-```
-
-
-### Reale Datenquellen (priorisiert + kompatible Fallbacks)
-Die App fragt jetzt **mehrere bestehende Endpunkte in Reihenfolge** ab und nutzt den ersten funktionierenden Treffer:
-
-- Gewinnspiele: `/api/giveaways` → Fallback `/wp-json/wp/v2/posts?_embed=1`
-- Gewinnspiel-Detail: `/api/giveaways/{idOrSlug}` → Fallback `/wp-json/wp/v2/posts/{id}` oder `?slug=...`
-- Kategorien: `/api/categories` → Fallback `/wp-json/wp/v2/categories`
-- Top10: `/api/top10` → Fallback `/wp-json/wp/v2/posts?tags=top10&_embed=1`
-
-Damit bleibt die App mit bestehender PHP/API-Logik kompatibel und kann gleichzeitig mit vorhandenen WordPress-REST-Daten arbeiten, ohne neue Datenbasis.
-
-Wenn eure Website aktuell andere Endpunkte/Response-Formate nutzt, muss nur `src/api/giveaways.ts` angepasst werden. UI und App-Architektur bleiben unverändert.
+### Query-Parameter
+- `GET /app-api/giveaways?categoryId=123`
+- `GET /app-api/giveaways?categorySlug=technik`
+- `GET /app-api/search?q=iphone`
 
 ---
 
-## 5) Build-Anleitung (Android/iOS)
+## Mobile App
 
-## Voraussetzungen
-- Node.js LTS
-- npm oder yarn
-- Expo CLI (optional) / `npx expo`
-- Für Store-Builds: EAS CLI (`npm i -g eas-cli`)
+### Wichtige Änderungen
+- Die App-Konfiguration zeigt auf die dedizierte API-Basis-URL, z. B. `https://api.gewinnhai.de`.
+- Die bisherige Mehrfachstrategie mit `/wp-json/...`, RSS-Feeds und HTML-nahen Fallbacks wurde entfernt.
+- Suchanfragen laufen explizit über `/app-api/search`.
+- Fehler werden nun als **App-API-/Serverprobleme** klassifiziert, nicht als Website-/WordPress-Probleme.
 
-### Lokal starten
+### Relevante App-Dateien
+- `src/api/client.ts`
+- `src/api/giveaways.ts`
+- `src/data/giveawaysRepository.ts`
+- `src/hooks/useGiveaways.ts`
+- `src/utils/query.ts`
+- `src/config/env.ts`
+
+---
+
+## Serverseitige App-API
+
+Die neue Server-Implementierung liegt unter:
+
+- `server/app-api/server.js`
+- `server/app-api/service.js`
+- `server/app-api/db.js`
+
+### Technische Eigenschaften
+- Express-basierte JSON-API
+- MySQL-Zugriff über `mysql2`
+- DB-Zugangsdaten ausschließlich serverseitig per Environment Variables
+- Zugriff direkt auf die bestehende Datenbank
+- Kategorien, Suche, Detail und Top10 werden serverseitig zusammengesetzt
+- Wenn kein eigenes Top10-Feld existiert, wird Top10 serverseitig aus vorhandenen Datensätzen abgeleitet
+
+### Erwartete Server-Environment-Variablen
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `WP_DB_PREFIX` (optional, Default `wp_`)
+- `APP_API_PORT` (optional, Default `3001`)
+- `APP_API_PUBLIC_ORIGIN` (optional, z. B. `https://www.gewinnhai.de`)
+- `APP_API_CORS_ORIGIN` (optional)
+- `APP_API_POST_TYPES` (optional, comma-separated)
+- `APP_API_CATEGORY_TAXONOMY` (optional, Default `category`)
+- `APP_API_TOP10_TAG_SLUG` (optional, Default `top10`)
+
+### Starten der App-API
 ```bash
 npm install
-npm run start
-```
-
-### Android (lokal)
-```bash
-npm run android
-```
-
-### iOS (lokal, macOS nötig)
-```bash
-npm run ios
-```
-
-### Store-fähige Builds (empfohlen mit EAS)
-```bash
-eas build:configure
-eas build -p android --profile production
-eas build -p ios --profile production
+npm run server:app-api
 ```
 
 ---
 
-## 6) Deployment-Hinweise (Play Store / App Store)
+## Deployment-Checkliste
 
-### Android (Play Store)
-- Paketname final festlegen (`android.package`)
-- Signierung via EAS/Keystore
-- Privacy-Policy-URL hinterlegen
-- Content-Rating + Data Safety korrekt ausfüllen
+### Serverseitig noch zu deployen
+1. Node-App aus `server/app-api/*` auf dem Server bereitstellen.
+2. Environment-Variablen für DB-Zugriff auf dem Server setzen.
+3. Reverse-Proxy so konfigurieren, dass `/app-api/*` an den Node-Service weitergeleitet wird.
+4. Optional eigene API-Subdomain nutzen, z. B. `api.gewinnhai.de`.
+5. CORS für Mobile/Web sauber setzen.
+6. Healthcheck `/health` an Monitoring anbinden.
 
-### iOS (App Store)
-- Bundle Identifier final (`ios.bundleIdentifier`)
-- App-Icons/Splash in finaler Qualität bereitstellen
-- App Privacy / Tracking-Angaben pflegen
-- TestFlight-Runde vor Release
-
----
-
-## 7) Wie neue Website-Inhalte automatisch in der App erscheinen
-
-Da die App keine eigene getrennte Datenbank nutzt und direkt dieselben APIs abfragt:
-- Neue Gewinnspiele/Kategorien/Top-Inhalte erscheinen automatisch
-- Pull-to-refresh erzwingt sofortiges Nachladen
-- Optional kann man zusätzlich Background Refresh/Push einbauen
+### App-seitig noch zu deployen
+1. `EXPO_PUBLIC_API_BASE_URL` auf die produktive API-URL zeigen lassen.
+2. Neue App-Version mit der bereinigten API-Schicht bauen.
+3. Tests gegen echte Staging-/Produktionsdatenbank durchführen.
 
 ---
 
-## Optionaler nächster Schritt (für perfekte Kompatibilität)
+## Architekturvorteil
 
-Sobald die echten Website-Dateien/API-Spezifikation vorliegen:
-1. Exakte Endpoint-Mapping-Tabelle erstellen
-2. Response-Mapping 1:1 in `src/api/giveaways.ts` finalisieren
-3. Auth/Cookie/Token-Flows ergänzen (falls nötig)
-4. E2E-Tests gegen Staging-Backend ergänzen
-
----
-
-## 8) Status nach Härtung für erste echte Testversion
-
-### Was jetzt funktioniert
-- Live-Datenanbindung wurde auf robuste Mehrfach-Endpunkte gehärtet (inkl. Retry/Timeout und robusteres Mapping bei Feldabweichungen und HTML-Responses).
-- Home, Kategorien, Top10 und Detail arbeiten mit echten API-/WordPress-Live-Daten inklusive robusterer Detailauflösung für Slug/ID-Varianten.
-- Loading-, Error-, Empty- und Offline-States sind auf allen Kernscreens konsistent und enthalten jetzt zusätzliche Retry-Möglichkeiten.
-- Pull-to-refresh und Fokus-Refetch sind stabilisiert und auf App-Reopen aktiv, inklusive React-Query-OfflineFirst-Verhalten.
-- Deep-Link-Pfade für Gewinnspiel-Details sind im Navigation- und Plattform-Setup vorbereitet.
-- Android/iOS-Build-Konfiguration ist für interne Testbuilds konkretisiert (VersionCode/BuildNumber, EAS-Profile, ENV-Variablen, Intent-Filter/Associated Domains).
-
-### Geänderte Kernbereiche
-- API-Client und Daten-Mapping (`src/api/client.ts`, `src/api/giveaways.ts`, `src/api/mappers.ts`)
-- Query- und Fokus-Refetching (`App.tsx`, `src/hooks/*`, `src/utils/query.ts`)
-- Zustände in Hauptscreens (`src/navigation/screens/*`)
-- Build-/Config-Dateien (`app.json`, `eas.json`, `src/config/env.ts`)
-
-### Für ersten Geräte-Test noch offen
-- Echte Testläufe auf physischen Android-/iOS-Geräten (inkl. langsamer Netze/offline/restore).
-- Finales QA der Top10-Datenquelle auf Backend-Seite (Tag/Endpoint-Strategie je nach CMS-Datenstand).
-- Store-relevante Metadaten finalisieren (Datenschutz-URL, Impressum, finale Assets/Listing-Texte, Signing-Setup).
-
-
-## 9) Delta für erste testbare Release-Version
-
-- API-Schicht wurde gegen unerwartete HTML-Antworten, Timeout- und Offline-Szenarien weiter gehärtet.
-- Live-Mapping für Home/Kategorien/Top10/Detail wurde robuster gegenüber Feldabweichungen zwischen Legacy- und WordPress-Antworten.
-- Externe Gewinnspiel-Links werden normalisiert und mit robustem Fehlerhandling geöffnet.
-- App-Reopen triggert jetzt Refetch für aktive Queries inklusive Detailseite.
-- Build-Konfiguration wurde für interne Android-/iOS-Testbuilds weiter bereinigt (`app.json`, `eas.json`).
+Mit dieser Struktur bauen Website und App auf **derselben Datenbasis** auf, ohne doppelte Datenpflege. Die App bekommt ausschließlich serverseitig aufbereitete JSON-Daten aus der Datenbank und ist vollständig von WordPress-REST-, Website-HTML- oder sonstigen Web-Fallbacks entkoppelt.
