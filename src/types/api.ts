@@ -12,6 +12,7 @@ export interface ApiListResponse {
 }
 
 export interface ApiItemResponse {
+  found?: boolean | number | string;
   item?: unknown;
   [key: string]: unknown;
 }

@@ -4,6 +4,7 @@ const extras = (Constants.expoConfig?.extra ?? {}) as {
   apiBaseUrl?: string;
   apiTimeoutMs?: number;
   appEnv?: string;
+  apiEndpoints?: Partial<Record<'home' | 'list' | 'item' | 'top10' | 'top3' | 'stats' | 'newest', string>>;
 };
 
 function withNoTrailingSlash(url: string): string {
@@ -22,6 +23,15 @@ const publicAppEnv = process.env.EXPO_PUBLIC_APP_ENV;
 
 const appEnv = publicAppEnv || extras.appEnv || 'production';
 const apiBaseUrl = withNoTrailingSlash(publicApiBaseUrl || extras.apiBaseUrl || 'https://www.gewinnhai.de');
+const livePhpEndpoints = {
+  home: '/api/home.php',
+  list: '/api/list.php',
+  item: '/api/item.php',
+  top10: '/api/top10.php',
+  top3: '/api/top3.php',
+  stats: '/api/stats.php',
+  newest: '/api/newest.php'
+} as const;
 
 export const ENV = {
   appEnv,
@@ -29,13 +39,8 @@ export const ENV = {
   apiBaseUrl,
   apiTimeoutMs: toSafeTimeoutMs(publicApiTimeoutMs || extras.apiTimeoutMs, 10000),
   endpoints: {
-    home: '/api/home.php',
-    list: '/api/list.php',
-    item: '/api/item.php',
-    top10: '/api/top10.php',
-    top3: '/api/top3.php',
-    stats: '/api/stats.php',
-    newest: '/api/newest.php'
+    ...livePhpEndpoints,
+    ...(extras.apiEndpoints ?? {})
   },
   query: {
     listStaleMs: 2 * 60_000,

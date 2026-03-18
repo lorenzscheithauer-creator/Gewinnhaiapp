@@ -256,14 +256,21 @@ function buildItemParamVariants(idOrSlug: string): Array<Record<string, string>>
   }
 
   const decoded = decodeURIComponent(normalized);
-  const parts = decoded.split('/').filter(Boolean);
-  if (parts.length >= 2) {
+  const withoutOrigin = decoded.replace(/^https?:\/\/[^/]+/i, '');
+  const parts = withoutOrigin.split('/').filter(Boolean);
+
+  if (parts.length >= 3) {
+    const [cat, veranstalter, slug] = parts.slice(-3);
+    variants.push({ cat, veranstalter, slug });
+    variants.push({ veranstalter, slug });
+    variants.push({ cat, slug });
+  } else if (parts.length >= 2) {
     const [first, second] = parts.slice(-2);
     variants.push({ veranstalter: first, slug: second });
     variants.push({ cat: first, slug: second });
   }
 
-  variants.push({ slug: decoded });
+  variants.push({ slug: parts.at(-1) ?? decoded });
 
   const deduped = new Set<string>();
   return variants.filter((entry) => {
@@ -278,6 +285,10 @@ async function requestItemVariant(params: Record<string, string>): Promise<Givea
   try {
     log('info', 'Using live endpoint /api/item.php.', params);
     const { data } = await apiClient.get<ApiItemResponse>(ENV.endpoints.item, { params });
+    if (data.found === false) {
+      return undefined;
+    }
+
     const detail = mapGiveaway(extractDetail(data));
 
     if (!detail.id || detail.id === 'unknown') {
@@ -325,7 +336,7 @@ export async function fetchGiveawayDetail(idOrSlug: string): Promise<Giveaway> {
       }
     }
 
-    throw new Error(`Kein Detaildatensatz für "${normalized}" über /api/item.php gefunden.`);
+    throw new Error(`Kein Detaildatensatz für "${normalized}" über /api/item.php gefunden. Erwartete Parameter: id, slug, veranstalter+slug oder optional cat+slug.`);
   });
 }
 
