@@ -87,22 +87,8 @@
       "edgeToEdgeEnabled": true
     },
     "extra": {
-      "apiBaseUrl": "https://www.gewinnhai.de",
+      "apiBaseUrl": "https://api.gewinnhai.de",
       "apiTimeoutMs": 10000,
-      "endpoints": {
-        "giveaways": [
-          "/wp-json/wp/v2/posts"
-        ],
-        "giveawayDetail": [
-          "/wp-json/wp/v2/posts/{idOrSlug}"
-        ],
-        "categories": [
-          "/wp-json/wp/v2/categories"
-        ],
-        "top10": [
-          "/wp-json/wp/v2/posts"
-        ]
-      },
       "appEnv": "production"
     },
     "androidStatusBar": {

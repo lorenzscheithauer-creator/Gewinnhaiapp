@@ -14,12 +14,8 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.gewinnhai.de",
         "EXPO_PUBLIC_API_TIMEOUT_MS": "10000",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAYS": "/api/giveaways,/wp-json/wp/v2/posts",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAY_DETAIL": "/api/giveaways/{idOrSlug},/wp-json/wp/v2/posts/{idOrSlug}",
-        "EXPO_PUBLIC_ENDPOINTS_CATEGORIES": "/api/categories,/wp-json/wp/v2/categories",
-        "EXPO_PUBLIC_ENDPOINTS_TOP10": "/api/top10,/wp-json/wp/v2/posts",
         "EXPO_PUBLIC_APP_ENV": "development"
       }
     },
@@ -31,12 +27,8 @@
         "withoutCredentials": false
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.gewinnhai.de",
         "EXPO_PUBLIC_API_TIMEOUT_MS": "10000",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAYS": "/api/giveaways,/wp-json/wp/v2/posts",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAY_DETAIL": "/api/giveaways/{idOrSlug},/wp-json/wp/v2/posts/{idOrSlug}",
-        "EXPO_PUBLIC_ENDPOINTS_CATEGORIES": "/api/categories,/wp-json/wp/v2/categories",
-        "EXPO_PUBLIC_ENDPOINTS_TOP10": "/api/top10,/wp-json/wp/v2/posts",
         "EXPO_PUBLIC_APP_ENV": "preview"
       },
       "ios": {
@@ -47,12 +39,8 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.gewinnhai.de",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.gewinnhai.de",
         "EXPO_PUBLIC_API_TIMEOUT_MS": "10000",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAYS": "/api/giveaways,/wp-json/wp/v2/posts",
-        "EXPO_PUBLIC_ENDPOINTS_GIVEAWAY_DETAIL": "/api/giveaways/{idOrSlug},/wp-json/wp/v2/posts/{idOrSlug}",
-        "EXPO_PUBLIC_ENDPOINTS_CATEGORIES": "/api/categories,/wp-json/wp/v2/categories",
-        "EXPO_PUBLIC_ENDPOINTS_TOP10": "/api/top10,/wp-json/wp/v2/posts",
         "EXPO_PUBLIC_APP_ENV": "production"
       },
       "android": {

@@ -1,26 +1,9 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 import { ENV } from '../config/env';
 
-const RETRY_ATTEMPTS = 2;
+const RETRY_ATTEMPTS = 1;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
-const DEFAULT_USER_AGENT =
-  'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36 GewinnhaiApp/1.0';
-
-function tryParseJsonPayload(data: unknown): unknown {
-  if (typeof data !== 'string') return data;
-
-  const trimmed = data.trim();
-  if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
-    return data;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return data;
-  }
-}
 
 function canRetry(error: AxiosError): boolean {
   if (!error.config) return false;
@@ -33,88 +16,33 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function hasHtmlLikeContent(value: string): boolean {
-  const normalized = value.toLowerCase();
-  return normalized.includes('<html') || normalized.includes('<!doctype') || normalized.includes('<?xml');
-}
-
-function getContentType(headers: AxiosResponseHeaders | RawAxiosResponseHeaders | undefined): string {
-  const value = headers?.['content-type'];
-  return typeof value === 'string' ? value.toLowerCase() : '';
-}
-
 function enrichHttpError(error: AxiosError): AxiosError {
   const status = error.response?.status;
-  const payload = error.response?.data;
-  const payloadIsHtml = typeof payload === 'string' && hasHtmlLikeContent(payload);
 
   if (!error.response) {
-    error.message = 'Netzwerkfehler: GewinnHai ist aktuell nicht erreichbar.';
+    error.message = 'Die App-API ist aktuell nicht erreichbar.';
   } else if (status === 404) {
-    error.message = 'Eintrag nicht gefunden.';
-  } else if (status === 403) {
-    error.message = 'Zugriff abgelehnt (403). Bitte später erneut versuchen.';
-  } else if (status === 429) {
-    error.message = 'Zu viele Anfragen. Bitte kurz warten und erneut versuchen.';
+    error.message = 'Der angeforderte App-API-Endpunkt wurde nicht gefunden.';
+  } else if (status === 400) {
+    error.message = 'Die Anfrage an die App-API war ungültig.';
   } else if (status && status >= 500) {
-    error.message = 'GewinnHai-Serverfehler. Bitte später erneut versuchen.';
-  }
-
-  if (payloadIsHtml && !error.message.toLowerCase().includes('server')) {
-    error.message = 'Unerwartete Antwort vom Server erhalten. Bitte später erneut versuchen.';
+    error.message = 'Die App-API meldet einen Serverfehler.';
   }
 
   return error;
 }
-
-const defaultTransformResponse = axios.defaults.transformResponse;
-const transformResponse = Array.isArray(defaultTransformResponse)
-  ? defaultTransformResponse
-  : defaultTransformResponse
-    ? [defaultTransformResponse]
-    : [];
 
 export const apiClient = axios.create({
   baseURL: ENV.apiBaseUrl,
   timeout: ENV.apiTimeoutMs,
   headers: {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
-    'X-Requested-With': 'XMLHttpRequest',
-    'User-Agent': DEFAULT_USER_AGENT,
-    Referer: 'https://www.gewinnhai.de/',
-    Origin: 'https://www.gewinnhai.de'
-  },
-  transformResponse: [...transformResponse, (data) => tryParseJsonPayload(data)]
+    'Content-Type': 'application/json'
+  }
 });
 
 apiClient.interceptors.response.use(
-  (response) => {
-    const data = response.data;
-    const contentType = getContentType(response.headers);
-
-    if (typeof data === 'string' && hasHtmlLikeContent(data)) {
-      return Promise.reject(
-        enrichHttpError(
-          new AxiosError('Unerwartete HTML-Antwort vom Server erhalten.', 'ERR_BAD_RESPONSE', response.config, response.request, {
-            ...response,
-            data
-          })
-        )
-      );
-    }
-
-    if (contentType.includes('text/html') || contentType.includes('text/xml') || contentType.includes('application/xml')) {
-      return Promise.reject(
-        enrichHttpError(
-          new AxiosError('Unerwarteter Response-Content-Type erhalten.', 'ERR_BAD_RESPONSE', response.config, response.request, response)
-        )
-      );
-    }
-
-    return response;
-  },
+  (response) => response,
   async (rawError: AxiosError) => {
     const error = enrichHttpError(rawError);
     const config = error.config as AxiosRequestConfig & { __retryCount?: number };

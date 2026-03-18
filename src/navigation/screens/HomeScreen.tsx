@@ -11,7 +11,7 @@ import { GiveawayCard } from '../../components/GiveawayCard';
 import { LoadingState } from '../../components/LoadingState';
 import { OfflineState } from '../../components/OfflineState';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import { useGiveaways } from '../../hooks/useGiveaways';
+import { useGiveaways, useSearchGiveaways } from '../../hooks/useGiveaways';
 import { Giveaway } from '../../types/models';
 import { classifyQueryError, useRefetchOnFocus } from '../../utils/query';
 import { openGiveawaySelection } from '../../utils/giveawayAction';
@@ -36,7 +36,9 @@ export function HomeScreen() {
   const categoryTitle = route.params?.categoryTitle;
   const categorySlug = route.params?.categorySlug;
 
-  const giveawaysQuery = useGiveaways({ query: debouncedQuery, categoryId, categorySlug });
+  const listQuery = useGiveaways({ categoryId, categorySlug });
+  const searchQuery = useSearchGiveaways({ query: debouncedQuery, categoryId, categorySlug }, { enabled: debouncedQuery.trim().length >= 2 });
+  const giveawaysQuery = debouncedQuery.trim().length >= 2 ? searchQuery : listQuery;
   useRefetchOnFocus(giveawaysQuery.refetch);
 
   const data = giveawaysQuery.data ?? [];
