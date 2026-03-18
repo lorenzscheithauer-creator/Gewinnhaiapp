@@ -1,15 +1,37 @@
-import { Category, Giveaway, TopItem } from './models';
+import { Category, Giveaway, HomeData, TopItem } from './models';
 
-export type ApiEnvelope<T> = {
-  ok?: boolean;
-  data: T;
-  meta?: Record<string, unknown>;
-  message?: string;
-  error?: string;
-};
+export type ApiRecord = Record<string, unknown>;
 
-export type ApiGiveawayListResponse = ApiEnvelope<Giveaway[]>;
-export type ApiCategoryListResponse = ApiEnvelope<Category[]>;
-export type ApiTopListResponse = ApiEnvelope<TopItem[]>;
-export type ApiGiveawayDetailResponse = ApiEnvelope<Giveaway>;
-export type ApiSearchResponse = ApiEnvelope<Giveaway[]>;
+export interface ApiListResponse {
+  items?: unknown[];
+  found?: number | string;
+  page?: number | string;
+  per_page?: number | string;
+  total_pages?: number | string;
+  [key: string]: unknown;
+}
+
+export interface ApiItemResponse {
+  item?: unknown;
+  [key: string]: unknown;
+}
+
+export interface ApiHomeResponse {
+  stats?: unknown;
+  top3?: {
+    items?: unknown[];
+    [key: string]: unknown;
+  };
+  newest?: {
+    items?: unknown[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export type ApiGiveawayListResponse = Giveaway[];
+export type ApiCategoryListResponse = Category[];
+export type ApiTopListResponse = TopItem[];
+export type ApiGiveawayDetailResponse = Giveaway;
+export type ApiSearchResponse = Giveaway[];
+export type ApiHomeDataResponse = HomeData;

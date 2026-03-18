@@ -12,6 +12,16 @@ interface UseGiveawaysOptions {
   enabled?: boolean;
 }
 
+export function useHomeData() {
+  return useDataQuery({
+    queryKey: ['home'],
+    queryFn: giveawaysRepository.home,
+    staleTime: ENV.query.homeStaleMs,
+    gcTime: ENV.query.homeGcMs,
+    refetchInterval: BACKGROUND_REFRESH_MS
+  });
+}
+
 export function useGiveaways(params?: SearchParams, options?: UseGiveawaysOptions) {
   const normalizedParams = useMemo(() => normalizeSearchParams(params), [params?.categoryId, params?.categorySlug, params?.query]);
 
