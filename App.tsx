@@ -4,6 +4,7 @@ import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-naviga
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import type { DefaultError } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -19,12 +20,12 @@ import { BRAND } from './src/theme';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => {
+      retry: (failureCount: number, error: DefaultError) => {
         const message = error instanceof Error ? error.message.toLowerCase() : '';
         if (message.includes('nicht gefunden')) return false;
         return failureCount < 2;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+      retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 5000),
       refetchOnReconnect: true,
       refetchOnWindowFocus: true,
       networkMode: 'online'
