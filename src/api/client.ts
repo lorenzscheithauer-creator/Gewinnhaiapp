@@ -20,13 +20,13 @@ function enrichHttpError(error: AxiosError): AxiosError {
   const status = error.response?.status;
 
   if (!error.response) {
-    error.message = 'Die Live-API ist aktuell nicht erreichbar.';
+    error.message = 'Die GewinnHai-PHP-API ist aktuell nicht erreichbar.';
   } else if (status === 404) {
-    error.message = 'Der angeforderte Live-API-Endpunkt wurde nicht gefunden.';
+    error.message = 'Der angeforderte PHP-Endpunkt wurde nicht gefunden.';
   } else if (status === 400) {
-    error.message = 'Die Anfrage an die Live-API war ungültig.';
+    error.message = 'Die Anfrage an die GewinnHai-PHP-API war ungültig.';
   } else if (status && status >= 500) {
-    error.message = 'Die Live-API meldet einen Serverfehler.';
+    error.message = 'Die GewinnHai-PHP-API meldet einen Serverfehler.';
   }
 
   return error;

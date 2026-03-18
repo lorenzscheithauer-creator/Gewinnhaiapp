@@ -23,7 +23,7 @@ export function useDataQuery<TData>(options: UseDataQueryOptions<TData>) {
     refetchOnWindowFocus: true,
     refetchInterval: options.refetchInterval ?? DEFAULT_BACKGROUND_REFRESH_MS,
     refetchIntervalInBackground: false,
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData: TData | undefined) => previousData,
     networkMode: 'online'
   });
 }

@@ -73,18 +73,18 @@ function getApiErrorMessage(error: unknown): string {
     const apiMessage = typeof apiData?.message === 'string' ? apiData.message : undefined;
 
     if (apiMessage) return apiMessage;
-    if (!error.response) return 'Die Live-API ist aktuell nicht erreichbar.';
-    if (error.response.status === 404) return 'Der angeforderte Live-API-Endpunkt wurde nicht gefunden (404).';
-    if (error.response.status >= 500) return 'Die Live-API meldet einen Serverfehler.';
-    return `Live-API-Fehler (${error.response.status}).`;
+    if (!error.response) return 'Die GewinnHai-PHP-API ist aktuell nicht erreichbar.';
+    if (error.response.status === 404) return 'Der angeforderte PHP-Endpunkt wurde nicht gefunden (404).';
+    if (error.response.status >= 500) return 'Die GewinnHai-PHP-API meldet einen Serverfehler.';
+    return `PHP-API-Fehler (${error.response.status}).`;
   }
 
-  return error instanceof Error ? error.message : 'Unbekannter Live-API-Fehler.';
+  return error instanceof Error ? error.message : 'Unbekannter PHP-API-Fehler.';
 }
 
 function validateArrayPayload<T>(payload: T[], emptyMessage: string): T[] {
   if (!Array.isArray(payload)) {
-    throw new Error('Ungültige Live-API-Antwort erhalten.');
+    throw new Error('Ungültige PHP-API-Antwort erhalten.');
   }
   if (!payload.length) {
     throw new Error(emptyMessage);
@@ -94,7 +94,7 @@ function validateArrayPayload<T>(payload: T[], emptyMessage: string): T[] {
 
 function validateObjectPayload<T>(payload: T | undefined): T {
   if (!payload || typeof payload !== 'object') {
-    throw new Error('Ungültige Live-API-Antwort erhalten.');
+    throw new Error('Ungültige PHP-API-Antwort erhalten.');
   }
   return payload;
 }
@@ -169,16 +169,16 @@ function filterGiveaways(items: Giveaway[], params: SearchParams): Giveaway[] {
 
 async function fetchListPage(params?: SearchParams): Promise<{ items: Giveaway[]; found?: number }> {
   const requestParams = normalizeListParams(params);
-  log('info', 'Using live endpoint /api/list.php.', requestParams);
+  log('info', 'Using production PHP endpoint /api/list.php.', requestParams);
   const { data } = await apiClient.get<ApiListResponse>(ENV.endpoints.list, { params: requestParams });
   const normalized = normalizeListResponse(data);
-  log('debug', 'Mapped response from /api/list.php.', { requestParams, count: normalized.items.length, found: normalized.found });
+  log('debug', 'Mapped response from production /api/list.php.', { requestParams, count: normalized.items.length, found: normalized.found });
   return normalized;
 }
 
 export async function fetchHomeData(): Promise<HomeData> {
   return loadWithCache(CACHE_KEYS.home, async () => {
-    log('info', 'Using live endpoint /api/home.php.');
+    log('info', 'Using production PHP endpoint /api/home.php.');
     const { data } = await apiClient.get<ApiHomeResponse>(ENV.endpoints.home);
     const top3 = extractList(data.top3 ?? {}, ['items']).map(mapGiveaway);
     const newest = extractList(data.newest ?? {}, ['items']).map(mapGiveaway);
@@ -189,7 +189,7 @@ export async function fetchHomeData(): Promise<HomeData> {
     };
 
     if (!home.top3.length && !home.newest.length) {
-      throw new Error('Die Live-API hat auf /api/home.php keine Home-Daten geliefert.');
+      throw new Error('Die GewinnHai-PHP-API hat auf /api/home.php keine Home-Daten geliefert.');
     }
 
     await setCache(CACHE_KEYS.home, home, { ttlMs: CACHE_TTL.home });
@@ -208,7 +208,7 @@ export async function fetchGiveaways(params?: SearchParams): Promise<Giveaway[]>
 
   return loadWithCache(cacheKey, async () => {
     const { items } = await fetchListPage(normalizedParams);
-    const giveaways = validateArrayPayload(items, 'Die Live-API hat keine Gewinnspiele geliefert.');
+    const giveaways = validateArrayPayload(items, 'Die GewinnHai-PHP-API hat keine Gewinnspiele geliefert.');
     await setCache(cacheKey, giveaways, { ttlMs: CACHE_TTL.giveaways });
     return giveaways;
   });
@@ -270,7 +270,8 @@ function buildItemParamVariants(idOrSlug: string): Array<Record<string, string>>
     variants.push({ cat: first, slug: second });
   }
 
-  variants.push({ slug: parts.at(-1) ?? decoded });
+  const lastPart = parts.length > 0 ? parts[parts.length - 1] : undefined;
+  variants.push({ slug: lastPart ?? decoded });
 
   const deduped = new Set<string>();
   return variants.filter((entry) => {
@@ -283,7 +284,7 @@ function buildItemParamVariants(idOrSlug: string): Array<Record<string, string>>
 
 async function requestItemVariant(params: Record<string, string>): Promise<Giveaway | undefined> {
   try {
-    log('info', 'Using live endpoint /api/item.php.', params);
+    log('info', 'Using production PHP endpoint /api/item.php.', params);
     const { data } = await apiClient.get<ApiItemResponse>(ENV.endpoints.item, { params });
     if (data.found === false) {
       return undefined;
@@ -302,11 +303,11 @@ async function requestItemVariant(params: Record<string, string>): Promise<Givea
     return validateObjectPayload(detail);
   } catch (error) {
     if (error instanceof AxiosError && error.response?.status === 404) {
-      log('warn', 'Live endpoint /api/item.php variant returned 404.', { params });
+      log('warn', 'Production /api/item.php variant returned 404.', { params });
       return undefined;
     }
 
-    log('warn', 'Live endpoint /api/item.php variant failed.', { params, error: getApiErrorMessage(error) });
+    log('warn', 'Production /api/item.php variant failed.', { params, error: getApiErrorMessage(error) });
     throw error;
   }
 }
@@ -366,7 +367,7 @@ export async function fetchCategories(): Promise<Category[]> {
       ).values()
     ).sort((left, right) => left.title.localeCompare(right.title, 'de'));
 
-    const valid = validateArrayPayload(categories, 'Die Live-API hat keine Kategorien geliefert.');
+    const valid = validateArrayPayload(categories, 'Die GewinnHai-PHP-API hat keine Kategorien geliefert.');
     await setCache(CACHE_KEYS.categories, valid, { ttlMs: CACHE_TTL.categories });
     return valid;
   });
@@ -374,10 +375,10 @@ export async function fetchCategories(): Promise<Category[]> {
 
 export async function fetchTop10(): Promise<TopItem[]> {
   return loadWithCache(CACHE_KEYS.top10, async () => {
-    log('info', 'Using live endpoint /api/top10.php.');
+    log('info', 'Using production PHP endpoint /api/top10.php.');
     const { data } = await apiClient.get<ApiListResponse>(ENV.endpoints.top10);
     const top10 = extractList(data, ['items']).map(mapTopItem);
-    const normalized = validateArrayPayload(top10, 'Die Live-API hat keine Top10-Daten geliefert.');
+    const normalized = validateArrayPayload(top10, 'Die GewinnHai-PHP-API hat keine Top10-Daten geliefert.');
     await setCache(CACHE_KEYS.top10, normalized, { ttlMs: CACHE_TTL.top10 });
     return normalized;
   });

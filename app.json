@@ -88,6 +88,7 @@
     },
     "extra": {
       "apiBaseUrl": "https://www.gewinnhai.de",
+      "apiStrategy": "php-site-api",
       "apiEndpoints": {
         "home": "/api/home.php",
         "list": "/api/list.php",

@@ -48,7 +48,7 @@ export function GiveawayDetailScreen({ route }: Props) {
   const canonicalGewinnhaiUrl = item?.slug ? `https://www.gewinnhai.de/gewinnspiel/${encodeURIComponent(item.slug)}` : undefined;
   const actionUrl = item?.sourceUrl ?? canonicalGewinnhaiUrl;
 
-  if (!item) return <EmptyState title="Keine Details verfügbar" message="Für dieses Gewinnspiel sind aktuell keine Live-Details verfügbar." />;
+  if (!item) return <EmptyState title="Keine Details verfügbar" message="Für dieses Gewinnspiel sind aktuell keine Detaildaten aus /api/item.php verfügbar." />;
 
   return (
     <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={detailQuery.isRefetching && !detailQuery.isPending} onRefresh={() => detailQuery.refetch()} tintColor="#fff" />}>
@@ -67,7 +67,7 @@ export function GiveawayDetailScreen({ route }: Props) {
             <Text style={styles.buttonLabel}>Zum Gewinnspiel</Text>
           </Pressable>
         ) : (
-          <EmptyState title="Kein Link verfügbar" message="Der externe Link wurde von der Live-API nicht geliefert." onRetry={() => detailQuery.refetch()} />
+          <EmptyState title="Kein Link verfügbar" message="Der externe Link wurde von den produktiven PHP-Daten nicht geliefert." onRetry={() => detailQuery.refetch()} />
         )}
       </View>
     </ScrollView>

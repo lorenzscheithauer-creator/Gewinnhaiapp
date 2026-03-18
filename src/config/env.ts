@@ -4,6 +4,7 @@ const extras = (Constants.expoConfig?.extra ?? {}) as {
   apiBaseUrl?: string;
   apiTimeoutMs?: number;
   appEnv?: string;
+  apiStrategy?: string;
   apiEndpoints?: Partial<Record<'home' | 'list' | 'item' | 'top10' | 'top3' | 'stats' | 'newest', string>>;
 };
 
@@ -23,6 +24,7 @@ const publicAppEnv = process.env.EXPO_PUBLIC_APP_ENV;
 
 const appEnv = publicAppEnv || extras.appEnv || 'production';
 const apiBaseUrl = withNoTrailingSlash(publicApiBaseUrl || extras.apiBaseUrl || 'https://www.gewinnhai.de');
+const apiStrategy = extras.apiStrategy || 'php-site-api';
 const livePhpEndpoints = {
   home: '/api/home.php',
   list: '/api/list.php',
@@ -37,6 +39,7 @@ export const ENV = {
   appEnv,
   isProduction: appEnv === 'production',
   apiBaseUrl,
+  apiStrategy,
   apiTimeoutMs: toSafeTimeoutMs(publicApiTimeoutMs || extras.apiTimeoutMs, 10000),
   endpoints: {
     ...livePhpEndpoints,
