@@ -29,16 +29,20 @@ export const ENV = {
   apiBaseUrl,
   apiTimeoutMs: toSafeTimeoutMs(publicApiTimeoutMs || extras.apiTimeoutMs, 10000),
   endpoints: {
-    giveaways: '/app-api/giveaways',
-    giveawayDetail: '/app-api/giveaways/{idOrSlug}',
-    categories: '/app-api/categories',
-    top10: '/app-api/top10',
-    search: '/app-api/search'
+    home: '/api/home.php',
+    list: '/api/list.php',
+    item: '/api/item.php',
+    top10: '/api/top10.php',
+    top3: '/api/top3.php',
+    stats: '/api/stats.php',
+    newest: '/api/newest.php'
   },
   query: {
     listStaleMs: 2 * 60_000,
     listGcMs: 45 * 60_000,
     detailStaleMs: 2 * 60_000,
-    detailGcMs: 45 * 60_000
+    detailGcMs: 45 * 60_000,
+    homeStaleMs: 2 * 60_000,
+    homeGcMs: 45 * 60_000
   }
 };
