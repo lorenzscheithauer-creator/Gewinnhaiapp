@@ -109,12 +109,12 @@ export function HomeScreen() {
     <View style={styles.container}>
       <BrandHeader
         title="Deine Gewinnspiel-Übersicht"
-        subtitle={hasCategoryFilter ? 'Gefilterte Liste aus /api/list.php.' : hasSearch ? 'Suchtreffer aus den Live-Listendaten.' : 'Startdaten aus /api/home.php.'}
+        subtitle={hasCategoryFilter ? 'Gefilterte Liste aus /api/list.php.' : hasSearch ? 'Suchtreffer aus echten Listendaten.' : 'Startdaten aus /api/home.php.'}
       />
       {!hasCategoryFilter && !hasSearch && homeStatsLabel ? (
         <View style={styles.statsContainer}>
           <Text style={styles.statsText}>{homeStatsLabel}</Text>
-          <Text style={styles.statsSubtext}>Top 3 und neueste Gewinnspiele werden direkt von der Live-Seite geladen.</Text>
+          <Text style={styles.statsSubtext}>Top 3 und neueste Gewinnspiele werden direkt von den produktiven PHP-Endpunkten geladen.</Text>
         </View>
       ) : null}
       {categoryTitle ? (

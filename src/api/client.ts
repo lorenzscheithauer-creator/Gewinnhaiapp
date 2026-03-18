@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 import { ENV } from '../config/env';
+import { toAppError } from '../utils/error';
 
 const RETRY_ATTEMPTS = 1;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -20,13 +21,13 @@ function enrichHttpError(error: AxiosError): AxiosError {
   const status = error.response?.status;
 
   if (!error.response) {
-    error.message = 'Die Live-API ist aktuell nicht erreichbar.';
+    error.message = 'Die GewinnHai-PHP-API ist aktuell nicht erreichbar.';
   } else if (status === 404) {
-    error.message = 'Der angeforderte Live-API-Endpunkt wurde nicht gefunden.';
+    error.message = 'Der angeforderte PHP-Endpunkt wurde nicht gefunden.';
   } else if (status === 400) {
-    error.message = 'Die Anfrage an die Live-API war ungültig.';
+    error.message = 'Die Anfrage an die GewinnHai-PHP-API war ungültig.';
   } else if (status && status >= 500) {
-    error.message = 'Die Live-API meldet einen Serverfehler.';
+    error.message = 'Die GewinnHai-PHP-API meldet einen Serverfehler.';
   }
 
   return error;
@@ -56,6 +57,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(toAppError(error));
   }
 );
